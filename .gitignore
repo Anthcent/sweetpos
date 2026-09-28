@@ -1,0 +1,12 @@
+# Runtime data
+/db/*.sqlite
+/db/*.sqlite-shm
+/db/*.sqlite-wal
+
+# Local tooling and logs
+/.atl/
+/.impeccable/live/
+*.log
+
+# Office temporary files
+~$*

@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-27T00:00:00Z",
+  "title": "Design System: Sweet POS",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Rosa frambuesa",
+        "canonical": "#B94F7B",
+        "tonalRamp": ["#4A172E", "#712344", "#9D3E68", "#B94F7B", "#DB6B98", "#E990B5", "#F3B6CF", "#FCE8F0"]
+      },
+      "lavender-soft": {
+        "role": "secondary",
+        "displayName": "Lavanda nube",
+        "canonical": "#F0ECFA",
+        "tonalRamp": ["#29213E", "#443761", "#61517F", "#8270A2", "#A798C0", "#C8BEE0", "#E0D9F0", "#F0ECFA"]
+      },
+      "mint-soft": {
+        "role": "tertiary",
+        "displayName": "Menta crema",
+        "canonical": "#E8F5EF",
+        "tonalRamp": ["#17362A", "#285845", "#3C7760", "#5C967B", "#83B59D", "#ADD3C0", "#CEE7DB", "#E8F5EF"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Tinta arándano",
+        "canonical": "#293241",
+        "tonalRamp": ["#141820", "#293241", "#455064", "#667187", "#8C95A6", "#B5BBC6", "#DADDE3", "#F2F3F5"]
+      }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Títulos principales de módulo." },
+      "body": { "displayName": "Body", "purpose": "Contenido operativo y formularios." },
+      "label": { "displayName": "Label", "purpose": "Estados y metadatos breves." }
+    },
+    "shadows": [
+      { "name": "ambient-low", "value": "0 2px 8px rgba(91, 68, 87, 0.06)", "purpose": "Navegación y superficies interactivas." },
+      { "name": "overlay", "value": "0 8px 24px rgba(61, 43, 57, 0.14)", "purpose": "Modales únicamente." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Respuesta rápida de controles." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "767px" },
+      { "name": "compact", "value": "1100px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción operativa principal, firme y compacta.",
+      "html": "<button class=\"ds-btn-primary\">Guardar cambios</button>",
+      "css": ".ds-btn-primary{background:#293241;color:#fff;border:0;border-radius:12px;padding:10px 20px;font:700 14px 'Nunito Sans',sans-serif;transition:background 180ms,transform 180ms}.ds-btn-primary:hover{background:#1c2430}.ds-btn-primary:focus-visible{outline:3px solid rgba(185,79,123,.28);outline-offset:2px}.ds-btn-primary:active{transform:scale(.985)}"
+    },
+    {
+      "name": "Accent Button",
+      "kind": "button",
+      "refersTo": "button-accent",
+      "description": "Cobros, confirmaciones y acción de marca.",
+      "html": "<button class=\"ds-btn-accent\">Confirmar pago</button>",
+      "css": ".ds-btn-accent{background:#B94F7B;color:#fff;border:0;border-radius:12px;padding:10px 20px;font:700 14px 'Nunito Sans',sans-serif;transition:background 180ms,transform 180ms}.ds-btn-accent:hover{background:#9D3E68}.ds-btn-accent:focus-visible{outline:3px solid rgba(185,79,123,.28);outline-offset:2px}.ds-btn-accent:active{transform:scale(.985)}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo claro con foco frambuesa visible.",
+      "html": "<input class=\"ds-input\" placeholder=\"Nombre del producto\">",
+      "css": ".ds-input{background:#fff;color:#293241;border:1px solid #E9E4EC;border-radius:12px;padding:10px 14px;font:500 14px 'Nunito Sans',sans-serif}.ds-input:focus{border-color:#B94F7B;box-shadow:0 0 0 3px rgba(185,79,123,.28);outline:0}.ds-input::placeholder{color:#64748B}"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "description": "Filtro de categoría con selección suave.",
+      "html": "<button class=\"ds-chip\">Helados</button>",
+      "css": ".ds-chip{background:#FCE8F0;color:#9D3E68;border:1px solid #F3C4D7;border-radius:8px;padding:7px 14px;font:700 13px 'Nunito Sans',sans-serif;transition:transform 180ms}.ds-chip:hover{transform:translateY(-1px)}.ds-chip:focus-visible{outline:3px solid rgba(185,79,123,.28);outline-offset:2px}"
+    },
+    {
+      "name": "Work Surface",
+      "kind": "card",
+      "description": "Contenedor operativo plano con separación tonal.",
+      "html": "<section class=\"ds-card\"><strong>Stock de materiales</strong><p>Contenido operativo</p></section>",
+      "css": ".ds-card{background:#fff;color:#293241;border:1px solid #E9E4EC;border-radius:16px;padding:24px;font:500 14px 'Nunito Sans',sans-serif}.ds-card strong{font-size:17px}.ds-card p{color:#64748B;margin:6px 0 0}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Dulce precisión",
+    "overview": "Sweet POS mezcla orden profesional, calma de pastelería y encanto de boutique. La personalidad aparece en curvas moderadas, color escaso y pequeños detalles de marca.",
+    "keyCharacteristics": ["Pasteles controlados", "Jerarquía amable y firme", "Profundidad tonal", "Interacciones rápidas", "Responsive estructural"],
+    "rules": [
+      { "name": "Sweet Accent", "body": "Rosa identifica marca, selección y acción; nunca rellena grandes áreas sin función.", "section": "colors" },
+      { "name": "Flat-by-Default", "body": "Tarjetas estáticas usan borde o contraste tonal; sombras amplias quedan prohibidas.", "section": "elevation" }
+    ],
+    "dos": ["Usar rosa para marca, selección y acción principal.", "Mantener contraste WCAG AA y foco visible."],
+    "donts": ["No hacer que Sweet POS parezca infantil ni recargado.", "No usar colores chillones, gradientes decorativos o exceso de sombras."]
+  }
+}
