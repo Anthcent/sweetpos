@@ -62,20 +62,20 @@
             </div>
         </header>
 
-        <div class="flex-1 overflow-y-auto p-3.5 sm:p-6 lg:p-8 z-10 relative flex flex-col gap-4 sm:gap-5 pb-24 sm:pb-8">
+        <div class="flex-1 overflow-y-auto p-3.5 sm:p-6 lg:p-8 z-10 relative space-y-4 sm:space-y-6 pb-32 sm:pb-12">
             <div id="panel-error" class="hidden text-sm font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3"></div>
 
             <!-- KPI tiles -->
             <section id="kpis" class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4" aria-label="Indicadores">
-                <div class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 p-3 sm:p-4 h-24 animate-pulse"></div>
-                <div class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 p-3 sm:p-4 h-24 animate-pulse"></div>
-                <div class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 p-3 sm:p-4 h-24 animate-pulse"></div>
-                <div class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 p-3 sm:p-4 h-24 animate-pulse"></div>
+                <div class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 p-3.5 sm:p-4 min-h-[5.5rem] animate-pulse"></div>
+                <div class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 p-3.5 sm:p-4 min-h-[5.5rem] animate-pulse"></div>
+                <div class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 p-3.5 sm:p-4 min-h-[5.5rem] animate-pulse"></div>
+                <div class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 p-3.5 sm:p-4 min-h-[5.5rem] animate-pulse"></div>
             </section>
 
             <!-- Alerts -->
             <section class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 overflow-hidden">
-                <div class="px-4 sm:px-6 py-3 sm:py-3.5 border-b border-slate-100 flex items-center justify-between">
+                <div class="px-4 sm:px-6 py-3 sm:py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <h2 class="font-extrabold text-slate-800 font-heading text-sm sm:text-base flex items-center gap-2">
                         <i data-lucide="bell-ring" class="w-4 h-4 text-pink-500"></i> Alertas priorizadas
                     </h2>
@@ -88,7 +88,7 @@
 
             <!-- Products -->
             <section class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 overflow-hidden">
-                <div class="px-4 sm:px-6 py-3 sm:py-3.5 border-b border-slate-100 flex items-center justify-between">
+                <div class="px-4 sm:px-6 py-3 sm:py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <h2 class="font-extrabold text-slate-800 font-heading text-sm sm:text-base flex items-center gap-2">
                         <i data-lucide="ice-cream-cone" class="w-4 h-4 text-pink-500"></i> Productos por ventas
                     </h2>
@@ -96,7 +96,7 @@
                 </div>
 
                 <!-- Vista Móvil: Tarjetas compactas (< md) -->
-                <div id="products-cards" class="md:hidden divide-y divide-slate-100/90">
+                <div id="products-cards" class="md:hidden divide-y divide-slate-100">
                     <div class="text-center py-8 text-slate-400 font-medium text-xs">Cargando productos...</div>
                 </div>
 
@@ -125,7 +125,7 @@
 
             <!-- Materials at risk -->
             <section class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 overflow-hidden">
-                <div class="px-4 sm:px-6 py-3 sm:py-3.5 border-b border-slate-100 flex items-center justify-between">
+                <div class="px-4 sm:px-6 py-3 sm:py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <h2 class="font-extrabold text-slate-800 font-heading text-sm sm:text-base flex items-center gap-2">
                         <i data-lucide="wheat" class="w-4 h-4 text-amber-600"></i> Insumos en riesgo
                     </h2>
@@ -133,7 +133,7 @@
                 </div>
 
                 <!-- Vista Móvil: Tarjetas compactas (< md) -->
-                <div id="materials-cards" class="md:hidden divide-y divide-slate-100/90">
+                <div id="materials-cards" class="md:hidden divide-y divide-slate-100">
                     <div class="text-center py-8 text-slate-400 font-medium text-xs">Cargando insumos...</div>
                 </div>
 
@@ -209,7 +209,7 @@
                 if (!res.ok) throw new Error(data.error || 'No se pudo cargar el panel.');
                 errBox.classList.add('hidden');
                 renderKpis(data);
-                renderAlerts(data.alerts, data);
+                renderAlerts(data.alerts);
                 renderProducts(data.products);
                 renderMaterials(data.materials);
                 document.getElementById('panel-footnote').textContent =
@@ -236,15 +236,15 @@
 
         function kpiTile(icon, label, value, sub, extra = '', tone = 'text-slate-900') {
             return `
-                <div class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 p-3 sm:p-4 flex flex-col justify-between">
+                <div class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/90 p-3.5 sm:p-4 flex flex-col justify-between min-h-[5.5rem] sm:min-h-[6.5rem]">
                     <div>
-                        <span class="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 truncate">
+                        <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 truncate">
                             <i data-lucide="${icon}" class="w-3.5 h-3.5 text-pink-500 shrink-0"></i> ${label}
                         </span>
-                        <span class="text-lg sm:text-2xl font-extrabold font-heading mt-1 block truncate ${tone}">${value}</span>
+                        <span class="text-xl sm:text-2xl font-extrabold font-heading mt-1 block truncate ${tone}">${value}</span>
                     </div>
                     <div class="mt-1">
-                        <span class="text-[10px] sm:text-[11px] text-slate-500 font-medium block truncate">${sub}</span>
+                        <span class="text-[11px] text-slate-500 font-medium block truncate">${sub}</span>
                         ${extra}
                     </div>
                 </div>`;
@@ -255,7 +255,7 @@
             const toProduce = data.products.filter(p => p.suggested_production > 0).length;
             document.getElementById('kpis').innerHTML =
                 kpiTile('wallet', 'Ventas de hoy', money(k.sales_today), `${k.orders_today} orden(es)`) +
-                kpiTile('trending-up', 'Ventas 7 días', money(k.sales_7d), 'Últimos 14 días:', sparkline(k.sparkline)) +
+                kpiTile('trending-up', 'Ventas 7 días', money(k.sales_7d), k.sales_7d > 0 ? 'Últimos 14 días:' : 'Sin ventas registradas', sparkline(k.sparkline)) +
                 kpiTile('siren', 'Alertas críticas', k.critical_alerts, `${k.total_alerts} alerta(s) en total`, '',
                         k.critical_alerts > 0 ? 'text-rose-600' : 'text-emerald-600') +
                 kpiTile('chef-hat', 'Por elaborar', toProduce, `para cubrir ${data.target_days} día(s)`);
@@ -265,18 +265,18 @@
             if (!action) return '';
             if (action.type === 'produce') {
                 return `<a href="produccion.php?produce=${Number(action.product_id)}&qty=${Number(action.quantity)}"
-                           class="btn-sweet-accent text-white px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto shrink-0">
+                           class="btn-sweet-accent text-white px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto shrink-0">
                             <i data-lucide="chef-hat" class="w-3.5 h-3.5"></i> Elaborar ${Number(action.quantity)}
                         </a>`;
             }
             if (action.type === 'purchase') {
                 return `<a href="materiales.php?purchase=${Number(action.material_id)}&qty=${Number(action.quantity)}"
-                           class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto shrink-0 transition-colors">
+                           class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto shrink-0 transition-colors">
                             <i data-lucide="shopping-cart" class="w-3.5 h-3.5"></i> Registrar compra
                         </a>`;
             }
             return `<a href="inventario.php"
-                       class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 w-full sm:w-auto shrink-0 transition-colors">
+                       class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 w-full sm:w-auto shrink-0 transition-colors">
                         <i data-lucide="package" class="w-3.5 h-3.5"></i> Ver inventario
                     </a>`;
         }
@@ -284,23 +284,23 @@
         function renderAlerts(alerts) {
             const list = document.getElementById('alerts-list');
             document.getElementById('alerts-count').textContent = alerts.length ? `${alerts.length} alerta(s)` : '';
-            if (!alerts.length) {
-                list.innerHTML = `<li class="px-4 sm:px-6 py-6 sm:py-8 text-center text-emerald-600 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2">
-                    <i data-lucide="check-circle" class="w-4 h-4"></i> Todo en orden: no hay alertas para el objetivo elegido.</li>`;
+            if (!alerts || !alerts.length) {
+                list.innerHTML = `<li class="px-4 sm:px-6 py-6 text-center text-emerald-700 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 bg-emerald-50/40">
+                    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0"></i> Todo en orden: no hay alertas para el objetivo elegido.</li>`;
                 return;
             }
             list.innerHTML = alerts.map(a => {
                 const [label, dot, text] = SEVERITY_STYLES[a.severity] || SEVERITY_STYLES.medio;
                 return `
-                    <li class="px-4 sm:px-6 py-3 sm:py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 hover:bg-slate-50/50 transition-colors">
+                    <li class="px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
                         <div class="flex items-start gap-2.5 flex-1 min-w-0">
-                            <span class="w-2.5 h-2.5 rounded-full ${dot} shrink-0 mt-1 sm:mt-1.5" aria-hidden="true"></span>
+                            <span class="w-2.5 h-2.5 rounded-full ${dot} shrink-0 mt-1" aria-hidden="true"></span>
                             <div class="flex-1 min-w-0">
                                 <span class="text-[10px] font-extrabold uppercase tracking-wider ${text}">${label}</span>
-                                <p class="text-xs sm:text-sm text-slate-700 font-medium leading-snug break-words">${escapeHtml(a.message)}</p>
+                                <p class="text-xs sm:text-sm text-slate-700 font-medium leading-snug break-words mt-0.5">${escapeHtml(a.message)}</p>
                             </div>
                         </div>
-                        <div class="w-full sm:w-auto pl-5 sm:pl-0">
+                        <div class="w-full sm:w-auto pl-5 sm:pl-0 shrink-0">
                             ${alertAction(a.action)}
                         </div>
                     </li>`;
@@ -327,7 +327,7 @@
                         <td class="px-5 py-3 text-xs font-extrabold text-slate-400 font-heading">${p.sold_30d > 0 ? Number(p.rank) : '—'}</td>
                         <td class="px-5 py-3">
                             <div class="flex items-center gap-2.5">
-                                <span class="w-3 h-3 rounded-full shrink-0 border border-slate-200" style="background:${safeColor(p.image_color)}"></span>
+                                <span class="w-3.5 h-3.5 rounded-full shrink-0 border border-slate-300" style="background:${safeColor(p.image_color)}"></span>
                                 <span class="font-bold text-slate-800 font-heading">${escapeHtml(p.name)}</span>
                                 ${p.is_top_seller ? '<i data-lucide="star" class="w-3.5 h-3.5 text-amber-400 fill-amber-300" title="Top ventas"></i>' : ''}
                             </div>
@@ -350,12 +350,12 @@
             // Mobile cards
             if (cards) {
                 cards.innerHTML = products.map(p => `
-                    <div class="p-3.5 sm:p-4 flex flex-col gap-2.5 hover:bg-pink-50/20 transition-colors">
+                    <div class="p-4 flex flex-col gap-3 hover:bg-pink-50/20 transition-colors">
                         <div class="flex items-center justify-between gap-2">
-                            <div class="flex items-center gap-2 min-w-0">
+                            <div class="flex items-center gap-2.5 min-w-0">
                                 <span class="text-xs font-black text-slate-400 font-heading shrink-0">#${p.sold_30d > 0 ? Number(p.rank) : '—'}</span>
-                                <span class="w-3 h-3 rounded-full shrink-0 border border-slate-200" style="background:${safeColor(p.image_color)}"></span>
-                                <h3 class="font-bold text-slate-800 text-xs sm:text-sm font-heading truncate">${escapeHtml(p.name)}</h3>
+                                <span class="w-3.5 h-3.5 rounded-full shrink-0 border border-slate-300 shadow-2xs" style="background:${safeColor(p.image_color)}"></span>
+                                <h3 class="font-bold text-slate-800 text-sm font-heading truncate">${escapeHtml(p.name)}</h3>
                                 ${p.is_top_seller ? '<i data-lucide="star" class="w-3.5 h-3.5 text-amber-400 fill-amber-300 shrink-0" title="Top ventas"></i>' : ''}
                             </div>
                             <div class="shrink-0">
@@ -363,36 +363,36 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-3 gap-1.5 sm:gap-2 bg-slate-50/80 p-2 sm:p-2.5 rounded-xl border border-slate-100 text-center">
-                            <div>
-                                <span class="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tight">Stock</span>
-                                <span class="font-extrabold text-slate-800 text-xs sm:text-sm">${Number(p.stock)}</span>
+                        <div class="grid grid-cols-3 gap-2 bg-slate-50/90 p-2.5 rounded-xl border border-slate-200/70 text-center">
+                            <div class="flex flex-col">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Stock</span>
+                                <span class="font-black text-slate-800 text-sm mt-0.5">${Number(p.stock)}</span>
                             </div>
-                            <div>
-                                <span class="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tight">Cobertura</span>
-                                <span class="font-extrabold text-slate-700 text-xs sm:text-sm">${days(p.coverage_days)}</span>
+                            <div class="flex flex-col border-x border-slate-200/60 px-1">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Cobertura</span>
+                                <span class="font-black text-slate-700 text-sm mt-0.5">${days(p.coverage_days)}</span>
                             </div>
-                            <div>
-                                <span class="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tight">Vendido 7d/30d</span>
-                                <span class="font-semibold text-slate-600 text-[11px] sm:text-xs">${Number(p.sold_7d)} <span class="text-slate-300">/</span> ${Number(p.sold_30d)}</span>
+                            <div class="flex flex-col">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Ventas 7d / 30d</span>
+                                <span class="font-bold text-slate-700 text-xs mt-0.5">${Number(p.sold_7d)} <span class="text-slate-400 font-normal">/</span> ${Number(p.sold_30d)}</span>
                             </div>
                         </div>
 
                         <div class="flex items-center justify-between pt-0.5 text-xs">
-                            <span class="text-slate-500 text-[11px] font-medium">
-                                Elaborables: <strong class="text-slate-700 font-bold">${p.can_make === null ? 'Sin receta' : Number(p.can_make)}</strong>
+                            <span class="text-slate-600 text-xs font-medium">
+                                Elaborables: <strong class="text-slate-800 font-bold">${p.can_make === null ? 'Sin receta' : Number(p.can_make)}</strong>
                             </span>
                             ${p.suggested_production > 0
                                 ? `<a href="produccion.php?produce=${Number(p.id)}&qty=${Number(p.suggested_production)}"
-                                      class="btn-sweet-accent text-white px-2.5 py-1 rounded-xl text-xs font-bold inline-flex items-center gap-1 shadow-xs">
-                                      <i data-lucide="chef-hat" class="w-3.5 h-3.5"></i> Sugerido: ${Number(p.suggested_production)}
+                                      class="btn-sweet-accent text-white px-3 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-xs">
+                                      <i data-lucide="chef-hat" class="w-3.5 h-3.5"></i> Elaborar ${Number(p.suggested_production)}
                                    </a>`
-                                : '<span class="text-[11px] text-slate-400 font-medium">Sin faltante</span>'
+                                : '<span class="text-xs text-slate-400 font-semibold bg-slate-100/80 px-2 py-0.5 rounded-lg">Sin faltante</span>'
                             }
                         </div>
                         ${p.need > p.suggested_production && p.has_recipe
-                            ? `<div class="bg-rose-50 text-rose-700 border border-rose-100 px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5">
-                                  <i data-lucide="alert-triangle" class="w-3 h-3 text-rose-500 shrink-0"></i>
+                            ? `<div class="bg-rose-50 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5">
+                                  <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-500 shrink-0"></i>
                                   <span>Faltan insumos para elaborar ${Number(p.need - p.suggested_production)} unidad(es)</span>
                                </div>`
                             : ''
@@ -407,17 +407,17 @@
             const cards = document.getElementById('materials-cards');
             const countEl = document.getElementById('materials-count');
 
-            const atRisk = materials
-                .filter(m => m.status !== 'ok' || m.blocks.length)
-                .sort((a, b) => (b.blocks.length ? 1 : 0) - (a.blocks.length ? 1 : 0)
+            const atRisk = (materials || [])
+                .filter(m => m.status !== 'ok' || (m.blocks && m.blocks.length))
+                .sort((a, b) => ((b.blocks && b.blocks.length) ? 1 : 0) - ((a.blocks && a.blocks.length) ? 1 : 0)
                              || (a.coverage_days ?? Infinity) - (b.coverage_days ?? Infinity));
 
             if (countEl) countEl.textContent = atRisk.length ? `${atRisk.length} en riesgo` : '0 en riesgo';
 
             if (!atRisk.length) {
-                const emptyMsg = '<div class="text-center py-8 text-emerald-600 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5"><i data-lucide="check-circle" class="w-4 h-4"></i> Ningún insumo en riesgo.</div>';
+                const emptyMsg = '<div class="text-center py-6 text-emerald-700 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 bg-emerald-50/40"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0"></i> Ningún insumo en riesgo de agotarse.</div>';
                 if (cards) cards.innerHTML = emptyMsg;
-                if (table) table.innerHTML = '<tr><td colspan="8" class="text-center py-10 text-emerald-600 font-semibold">Ningún insumo en riesgo.</td></tr>';
+                if (table) table.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-emerald-700 font-semibold bg-emerald-50/40">Ningún insumo en riesgo de agotarse.</td></tr>';
                 return;
             }
 
@@ -431,7 +431,7 @@
                         <td class="px-5 py-3 text-right text-slate-500">${num(m.min_stock)}</td>
                         <td class="px-5 py-3 text-right">${num(m.daily_consumption, 3)}</td>
                         <td class="px-5 py-3 text-right">${days(m.coverage_days)}</td>
-                        <td class="px-5 py-3 text-xs">${m.blocks.length
+                        <td class="px-5 py-3 text-xs">${m.blocks && m.blocks.length
                             ? m.blocks.map(b => `<span class="inline-block mr-1 mb-0.5 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold">#${Number(b.rank)} ${escapeHtml(b.name)}</span>`).join('')
                             : '<span class="text-slate-300">—</span>'}</td>
                         <td class="px-5 py-3">${statusPill(m.status)}</td>
@@ -447,47 +447,47 @@
             // Mobile cards
             if (cards) {
                 cards.innerHTML = atRisk.map(m => `
-                    <div class="p-3.5 sm:p-4 flex flex-col gap-2.5 hover:bg-pink-50/20 transition-colors">
+                    <div class="p-4 flex flex-col gap-3 hover:bg-pink-50/20 transition-colors">
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
-                                <h3 class="font-bold text-slate-800 text-xs sm:text-sm font-heading truncate">${escapeHtml(m.name)}</h3>
-                                ${m.used_by === 0 ? '<span class="text-[10px] text-slate-400 font-medium">Sin recetas</span>' : ''}
+                                <h3 class="font-bold text-slate-800 text-sm font-heading truncate">${escapeHtml(m.name)}</h3>
+                                ${m.used_by === 0 ? '<span class="text-[10px] text-slate-400 font-medium">Sin recetas vinculadas</span>' : ''}
                             </div>
                             <div class="shrink-0">
                                 ${statusPill(m.status)}
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-3 gap-1.5 sm:gap-2 bg-slate-50/80 p-2 sm:p-2.5 rounded-xl border border-slate-100 text-center">
-                            <div>
-                                <span class="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tight">Stock</span>
-                                <span class="font-extrabold text-slate-800 text-xs sm:text-sm">${num(m.stock)} <span class="text-[9px] font-normal text-slate-400">${escapeHtml(m.unit)}</span></span>
+                        <div class="grid grid-cols-3 gap-2 bg-slate-50/90 p-2.5 rounded-xl border border-slate-200/70 text-center">
+                            <div class="flex flex-col">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Stock Actual</span>
+                                <span class="font-black text-slate-800 text-sm mt-0.5">${num(m.stock)} <span class="text-[10px] font-normal text-slate-500">${escapeHtml(m.unit)}</span></span>
                             </div>
-                            <div>
-                                <span class="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tight">Mínimo</span>
-                                <span class="font-semibold text-slate-600 text-xs">${num(m.min_stock)}</span>
+                            <div class="flex flex-col border-x border-slate-200/60 px-1">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Mínimo</span>
+                                <span class="font-bold text-slate-700 text-xs mt-0.5">${num(m.min_stock)}</span>
                             </div>
-                            <div>
-                                <span class="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tight">Cobertura</span>
-                                <span class="font-extrabold text-slate-700 text-xs sm:text-sm">${days(m.coverage_days)}</span>
+                            <div class="flex flex-col">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Cobertura</span>
+                                <span class="font-black text-slate-700 text-sm mt-0.5">${days(m.coverage_days)}</span>
                             </div>
                         </div>
 
-                        ${m.blocks.length ? `
-                            <div class="text-[10px] sm:text-[11px] text-slate-600">
-                                <span class="text-slate-400 font-bold block mb-1">Bloquea elaboración de:</span>
+                        ${m.blocks && m.blocks.length ? `
+                            <div class="text-xs text-slate-600 bg-rose-50/60 p-2 rounded-xl border border-rose-100">
+                                <span class="text-rose-800 font-bold block mb-1 text-[11px]">Bloquea elaboración de:</span>
                                 <div class="flex flex-wrap gap-1">
-                                    ${m.blocks.map(b => `<span class="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold text-[9px] sm:text-[10px]">#${Number(b.rank)} ${escapeHtml(b.name)}</span>`).join('')}
+                                    ${m.blocks.map(b => `<span class="px-2 py-0.5 rounded-full bg-white text-rose-700 border border-rose-200 font-bold text-[10px]">#${Number(b.rank)} ${escapeHtml(b.name)}</span>`).join('')}
                                 </div>
                             </div>
                         ` : ''}
 
                         <div class="flex items-center justify-between pt-1 border-t border-slate-100">
-                            <span class="text-[10px] sm:text-[11px] text-slate-400 font-medium">
-                                Consumo: <strong class="text-slate-600 font-bold">${num(m.daily_consumption, 3)}/d</strong>
+                            <span class="text-xs text-slate-500 font-medium">
+                                Consumo: <strong class="text-slate-700 font-bold">${num(m.daily_consumption, 3)}/d</strong>
                             </span>
                             <a href="materiales.php?purchase=${Number(m.id)}&qty=${Number(m.suggested_purchase)}"
-                               class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-xl text-xs font-bold inline-flex items-center gap-1 shadow-xs transition-colors">
+                               class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors">
                                 <i data-lucide="shopping-cart" class="w-3.5 h-3.5"></i> ${m.suggested_purchase > 0 ? 'Comprar ' + num(m.suggested_purchase) : 'Comprar'}
                             </a>
                         </div>
