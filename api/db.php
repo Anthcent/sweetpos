@@ -1,6 +1,17 @@
 <?php
 // SWEETPOS_DB_PATH lets CLI tests point the API at a copy of the database.
-$db_path = getenv('SWEETPOS_DB_PATH') ?: __DIR__ . '/../db/database.sqlite';
+$db_path = getenv('SWEETPOS_DB_PATH');
+if (!$db_path) {
+    if (getenv('VERCEL') || getenv('AWS_LAMBDA_FUNCTION_NAME') || !empty($_ENV['VERCEL'])) {
+        $db_path = sys_get_temp_dir() . '/database.sqlite';
+    } else {
+        $db_dir = __DIR__ . '/../db';
+        if (!is_dir($db_dir)) {
+            @mkdir($db_dir, 0777, true);
+        }
+        $db_path = $db_dir . '/database.sqlite';
+    }
+}
 try {
     $pdo = new PDO("sqlite:" . $db_path);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

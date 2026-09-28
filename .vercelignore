@@ -1,0 +1,6 @@
+*.docx
+iniciar_sistema.bat
+tests/
+.git/
+.gitignore
+db/*.sqlite*

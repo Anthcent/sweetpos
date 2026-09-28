@@ -17,10 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Por favor completa todos los campos.';
     } else {
         try {
-            $db_path = __DIR__ . '/db/database.sqlite';
-            $pdo = new PDO("sqlite:" . $db_path);
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            require_once __DIR__ . '/api/db.php';
 
             $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
             $stmt->execute([$username]);

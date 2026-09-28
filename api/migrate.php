@@ -170,6 +170,28 @@ function migrationList(): array {
             migrationAddColumn($pdo, 'production_log', 'voided_at', 'DATETIME DEFAULT NULL');
             migrationAddColumn($pdo, 'production_log', 'voided_by', 'TEXT DEFAULT NULL');
         },
+
+        // 10. Default users and sample products if tables are empty (enables zero-config deploy)
+        10 => function (PDO $pdo) {
+            $stmt = $pdo->query("SELECT COUNT(*) FROM users");
+            if ($stmt->fetchColumn() == 0) {
+                $insert = $pdo->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)");
+                $insert->execute(['admin',    password_hash('admin123',    PASSWORD_BCRYPT), 'admin']);
+                $insert->execute(['gerente',  password_hash('gerente123',  PASSWORD_BCRYPT), 'gerente']);
+                $insert->execute(['vendedor', password_hash('vendedor123', PASSWORD_BCRYPT), 'vendedor']);
+            }
+            $stmt = $pdo->query("SELECT COUNT(*) FROM products");
+            if ($stmt->fetchColumn() == 0) {
+                $pdo->exec("INSERT INTO products (name, category, price, stock, image_color) VALUES 
+                    ('Helado Vainilla', 'Helados', 2.50, 50, '#fef3c7'),
+                    ('Helado Chocolate', 'Helados', 3.00, 40, '#fed7aa'),
+                    ('Helado Fresa', 'Helados', 2.50, 60, '#fbcfe8'),
+                    ('Cheesecake', 'Postres', 4.50, 20, '#e9d5ff'),
+                    ('Brownie', 'Postres', 3.00, 30, '#d8b4fe'),
+                    ('Café Americano', 'Varios', 1.50, 100, '#d6d3d1')
+                ");
+            }
+        },
     ];
 }
 
