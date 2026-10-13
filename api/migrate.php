@@ -171,15 +171,8 @@ function migrationList(): array {
             migrationAddColumn($pdo, 'production_log', 'voided_by', 'TEXT DEFAULT NULL');
         },
 
-        // 10. Default users and sample products if tables are empty (enables zero-config deploy)
+        // 10. Sample products if the table is empty.
         10 => function (PDO $pdo) {
-            $stmt = $pdo->query("SELECT COUNT(*) FROM users");
-            if ($stmt->fetchColumn() == 0) {
-                $insert = $pdo->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)");
-                $insert->execute(['admin',    password_hash('admin123',    PASSWORD_BCRYPT), 'admin']);
-                $insert->execute(['gerente',  password_hash('gerente123',  PASSWORD_BCRYPT), 'gerente']);
-                $insert->execute(['vendedor', password_hash('vendedor123', PASSWORD_BCRYPT), 'vendedor']);
-            }
             $stmt = $pdo->query("SELECT COUNT(*) FROM products");
             if ($stmt->fetchColumn() == 0) {
                 $pdo->exec("INSERT INTO products (name, category, price, stock, image_color) VALUES 

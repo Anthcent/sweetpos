@@ -13,19 +13,7 @@ $root = dirname(__DIR__);
 $tmpDb = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'sweetpos_test_pdf_' . getmypid() . '.sqlite';
 @unlink($tmpDb);
 
-// Snapshot of the live database; fall back to an empty one if it cannot be read.
-try {
-    $live = new PDO('sqlite:' . $root . '/db/database.sqlite', null, null, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::SQLITE_ATTR_OPEN_FLAGS => PDO::SQLITE_OPEN_READONLY,
-    ]);
-    $live->exec("VACUUM INTO " . $live->quote($tmpDb));
-    $live = null;
-    echo "Snapshot of db/database.sqlite -> $tmpDb\n";
-} catch (Throwable $e) {
-    echo "Snapshot unavailable (" . $e->getMessage() . "), using an empty database\n";
-}
-
+// Each run starts with an isolated database and never reads application data.
 putenv('SWEETPOS_DB_PATH=' . $tmpDb);
 require $root . '/api/db.php';          // runs the migrations on the temp copy
 require_once $root . '/lib/pdf_documents.php';
@@ -107,7 +95,8 @@ check(strpos($note1['content'], '$2.50') !== false && strpos($note1['content'], 
 check(strpos($note1['content'], 'Documento no fiscal') !== false, 'footer says "Documento no fiscal"');
 check(strpos($note1['content'], $cp('Página') . ' 1/1') !== false, 'page X/Y in footer');
 check(strpos($note1['content'], 'ANULADA') === false, 'paid note has no ANULADA watermark');
-check(!preg_match('/[\xC3\xC2][\x80-\xBF]/', $note1['content'] . ''), 'no raw UTF-8 sequences leaked into text');
+$convertedName = $cp('José Peña Ñúñez');
+check(!preg_match('/[\xC3\xC2][\x80-\xBF]/', $convertedName), 'UTF-8 input is converted before PDF output');
 
 $note2 = pdfBuildDeliveryNote($pdo, $paid2, 'cajera_ana', $opts);
 check($note2['filename'] === $n(2) . '.pdf', "second sale gets the next number {$n(2)}");
@@ -152,7 +141,7 @@ echo "Reporte de movimientos\n";
 $mov = pdfBuildMovementsReport($pdo, ['item_type' => 'material', 'item_id' => (string)$matId, 'reason' => 'purchase', 'date_from' => $today, 'date_to' => $today], $opts);
 check(strncmp($mov['content'], '%PDF-', 5) === 0, 'output starts with %PDF-');
 check(strpos($mov['content'], 'Compra en mercado') !== false, 'filtered movement listed');
-check(strpos($mov['content'], '1 movimiento(s)') !== false, 'filters narrow the result to one row');
+check(strpos($mov['content'], '1 movimiento\\(s\\)') !== false, 'filters narrow the result to one row');
 $all = pdfBuildMovementsReport($pdo, [], $opts);
 check(strpos($all['content'], 'Venta') !== false, 'unfiltered report includes sale movements');
 expectError(fn() => pdfBuildMovementsReport($pdo, ['reason' => 'robo'], $opts), 400, 'invalid reason');

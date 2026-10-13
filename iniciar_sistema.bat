@@ -25,11 +25,11 @@ echo.
 rem 2. Inicializar y actualizar la base de datos SQLite
 echo [2/4] Verificando e inicializando base de datos SQLite...
 php init_db.php
-php update_db.php
-php update_db_2.php
-php update_db_3.php
-php update_db_4.php
-php api\migrate.php
+if errorlevel 1 (
+    echo [ERROR] Configure las tres contrasenas iniciales como variables de entorno antes de iniciar una base nueva.
+    pause
+    exit /b 1
+)
 echo [OK] Base de datos verificada y actualizada.
 echo.
 

@@ -3,6 +3,14 @@
 /db/*.sqlite-shm
 /db/*.sqlite-wal
 
+# Runtime secrets and private credentials
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+
 # Local tooling and logs
 /.atl/
 /.impeccable/live/
