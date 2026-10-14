@@ -139,6 +139,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <!-- Acciones del pie de sidebar -->
     <div class="sidebar-actions px-3 w-full flex flex-col gap-2 mt-4">
 
+        <?php if (canAccess('usuarios')): ?>
+        <a href="usuarios.php" title="Administrar usuarios" class="w-full aspect-square rounded-2xl <?= $currentPage === 'usuarios.php' ? 'bg-pink-50 text-pink-600' : 'bg-slate-100/80 text-slate-500 hover:bg-pink-50 hover:text-pink-600' ?> flex flex-col items-center justify-center transition-all">
+            <i data-lucide="users" class="w-4 h-4 mb-1"></i>
+            <span class="text-[9px] font-semibold">Usuarios</span>
+        </a>
+        <?php endif; ?>
+
         <!-- Boton Registrar Cliente — solo en index.php y para gerente/admin -->
         <?php if ($currentPage === 'index.php' && canAccess('clientes')): ?>
         <button

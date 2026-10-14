@@ -12,6 +12,20 @@ function requireLogin() {
         header('Location: login.php');
         exit();
     }
+    global $pdo;
+    require_once __DIR__ . '/api/db.php';
+    $stmt = $pdo->prepare('SELECT username, role, is_active, password_hash FROM users WHERE id = ?');
+    $stmt->execute([$_SESSION['user_id']]);
+    $user = $stmt->fetch();
+    if (!$user || (int)$user['is_active'] !== 1 ||
+        !hash_equals(hash('sha256', $user['password_hash']), (string)($_SESSION['credential_stamp'] ?? ''))) {
+        $_SESSION = [];
+        session_destroy();
+        header('Location: login.php');
+        exit();
+    }
+    $_SESSION['username'] = $user['username'];
+    $_SESSION['role'] = $user['role'];
 }
 
 function requireRole(array $roles) {

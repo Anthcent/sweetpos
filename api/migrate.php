@@ -218,6 +218,11 @@ function migrationList(): array {
                 ");
             }
         },
+
+        // 11. Administrators can disable accounts without deleting sales history.
+        11 => function (PDO $pdo) {
+            migrationAddColumn($pdo, 'users', 'is_active', 'INTEGER NOT NULL DEFAULT 1');
+        },
     ];
 }
 

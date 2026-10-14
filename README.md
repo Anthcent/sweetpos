@@ -17,6 +17,8 @@ Si `DATABASE_URL` no está configurada, la aplicación usa SQLite en `SWEETPOS_D
 
 Las tres contraseñas de inicialización solo se requieren cuando la base no tiene usuarios. Configúralas como secretos de ejecución en el administrador autorizado, con al menos 12 caracteres. Tras crear las cuentas, puedes retirar esos tres secretos de la configuración. Si usas SQLite, configura también `SWEETPOS_DB_PATH` si necesitas guardar la base en otra ruta persistente.
 
+Después del primer acceso, entra con `admin` y abre **Usuarios** en la barra lateral. Desde allí puedes crear cuentas con rol administrador, gerente o vendedor, cambiar nombres y contraseñas, o desactivar y reactivar cuentas. Dejar vacía la contraseña al editar conserva la actual. El sistema impide desactivar al último administrador activo; un cambio de contraseña o una desactivación invalida las sesiones anteriores de esa cuenta. Las contraseñas no se muestran ni se guardan en el repositorio.
+
 En Dokploy, selecciona PostgreSQL automático para la aplicación y confirma que `DATABASE_URL` está disponible dentro del contenedor. Cada push a la rama configurada inicia un despliegue; confirma la rama antes de subir cambios.
 
 ## Compilar y ejecutar localmente
