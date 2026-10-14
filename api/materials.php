@@ -111,7 +111,7 @@ switch ($method) {
 
             $stmt = $pdo->prepare("INSERT INTO materials (name, unit, stock, min_stock, cost_per_unit) VALUES (?, ?, 0, ?, ?)");
             $stmt->execute([$name, mb_substr($unit, 0, 20), max(0, (float)($data['min_stock'] ?? 0)), $cost]);
-            $materialId = (int)$pdo->lastInsertId();
+            $materialId = sweetposLastInsertId($pdo, 'materials');
             if ($initialStock > 0) {
                 changeMaterialStock($pdo, $materialId, $initialStock, StockReason::PURCHASE, null, 'Stock inicial', $cost > 0 ? $cost : null);
             }

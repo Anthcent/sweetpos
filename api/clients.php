@@ -33,7 +33,7 @@ if ($method == 'GET') {
                 $data['phone'] ?? null,
                 $data['address'] ?? null
             ]);
-            echo json_encode(["message" => "Cliente registrado", "id" => $pdo->lastInsertId()]);
+            echo json_encode(["message" => "Cliente registrado", "id" => sweetposLastInsertId($pdo, 'clients')]);
         } catch (PDOException $e) {
             // Error 19 is Constraint Violation in SQLite (e.g. Unique Cedula)
             http_response_code(400);

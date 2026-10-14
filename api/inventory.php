@@ -92,10 +92,10 @@ function changeMaterialStock(PDO $pdo, int $materialId, float $delta, string $re
     $delta = round($delta, 6);
     if ($delta == 0) return;
     if ($delta > 0) {
-        $stmt = $pdo->prepare("UPDATE materials SET stock = ROUND(stock + CAST(? AS REAL), 6) WHERE id = ?");
+        $stmt = $pdo->prepare("UPDATE materials SET stock = ROUND(CAST(stock + CAST(? AS REAL) AS NUMERIC), 6) WHERE id = ?");
         $stmt->execute([$delta, $materialId]);
     } else {
-        $stmt = $pdo->prepare("UPDATE materials SET stock = ROUND(stock - CAST(? AS REAL), 6) WHERE id = ? AND ROUND(stock, 6) >= CAST(? AS REAL)");
+        $stmt = $pdo->prepare("UPDATE materials SET stock = ROUND(CAST(stock - CAST(? AS REAL) AS NUMERIC), 6) WHERE id = ? AND ROUND(CAST(stock AS NUMERIC), 6) >= CAST(CAST(? AS REAL) AS NUMERIC)");
         $stmt->execute([-$delta, $materialId, -$delta]);
     }
     if ($stmt->rowCount() === 0) {
@@ -188,7 +188,7 @@ function produceProduct(PDO $pdo, int $productId, int $quantity): int {
 
     $log = $pdo->prepare("INSERT INTO production_log (product_id, quantity_produced, username) VALUES (?, ?, ?)");
     $log->execute([$productId, $quantity, currentUsername()]);
-    $productionId = (int)$pdo->lastInsertId();
+    $productionId = sweetposLastInsertId($pdo, 'production_log');
 
     // Try every material and report all shortages together.
     $missing = [];
@@ -215,12 +215,17 @@ function produceProduct(PDO $pdo, int $productId, int $quantity): int {
 // transaction.
 function undoProduction(PDO $pdo, int $productionId): array {
     // Conditional UPDATE: only one request can void a production.
+    $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+    $cutoff = $now->modify('-' . PRODUCTION_UNDO_WINDOW_SECONDS . ' seconds');
     $upd = $pdo->prepare(
         "UPDATE production_log SET voided_at = CURRENT_TIMESTAMP, voided_by = ?
          WHERE id = ? AND voided_at IS NULL
-           AND (julianday('now') - julianday(created_at)) * 86400 <= ?"
+           AND created_at >= ? AND created_at <= ?"
     );
-    $upd->execute([currentUsername(), $productionId, PRODUCTION_UNDO_WINDOW_SECONDS]);
+    $upd->execute([
+        currentUsername(), $productionId,
+        $cutoff->format('Y-m-d H:i:s'), $now->format('Y-m-d H:i:s'),
+    ]);
     if ($upd->rowCount() === 0) {
         throw new StockException("La elaboración no existe, ya fue deshecha o pasó el tiempo para deshacerla.", 409);
     }

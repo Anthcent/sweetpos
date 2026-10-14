@@ -1,26 +1,27 @@
 # SweetPOS
 
-## Despliegue con Docker en Dokploy
+## Despliegue en Hexper Ops y Dokploy
 
-El contenedor usa la imagen oficial `php:8.4.26-apache-bookworm`, ejecuta Apache como `www-data` y escucha en `0.0.0.0:8080`. El `HEALTHCHECK` consulta `http://127.0.0.1:8080/`. Dokploy debe usar el puerto interno 8080.
+La imagen usa PHP 8.4 con Apache, ejecuta el proceso como `www-data` y escucha en `0.0.0.0:8080`. Declara solo `EXPOSE 8080`; el healthcheck consulta `http://127.0.0.1:8080/`. En Hexper Ops selecciona la ruta `/` y deja que configure el puerto interno 8080.
 
-La aplicación usa SQLite y guarda la base en `/data/database.sqlite`. El Dockerfile declara `/data` como volumen; configura un volumen persistente escribible por UID 33 (`www-data`) en Dokploy. Esta aplicación no consume `DATABASE_URL`, así que no selecciones PostgreSQL automático. Si Hexper Ops no permite asignar un volumen persistente, detén el despliegue hasta migrar la aplicación a PostgreSQL o confirmar una alternativa de almacenamiento persistente.
+La aplicación detecta `DATABASE_URL` al iniciar. Cuando Dokploy la inyecta para PostgreSQL, SweetPOS conecta a esa base, aplica las migraciones pendientes y prepara las cuentas iniciales antes de iniciar Apache. No requiere migraciones manuales posteriores al despliegue. La aplicación no publica un puerto para PostgreSQL ni administra sus usuarios, contraseñas o reglas de acceso.
 
-Al arrancar, el contenedor aplica las migraciones de SQLite y crea las cuentas iniciales antes de iniciar Apache. En una base nueva, configura estas variables como secretos de ejecución en Dokploy:
+Si `DATABASE_URL` no está configurada, la aplicación usa SQLite en `SWEETPOS_DB_PATH` (por defecto `/data/database.sqlite`). Esta alternativa es para desarrollo o instalaciones que tengan almacenamiento persistente configurado; para PostgreSQL automático no hace falta montar `/data`.
 
+### Variables de ejecución
+
+- `DATABASE_URL`: la inyecta Dokploy al seleccionar PostgreSQL automático. No la copies al repositorio ni la compartas en solicitudes o registros.
 - `SWEETPOS_BOOTSTRAP_ADMIN_PASSWORD`
 - `SWEETPOS_BOOTSTRAP_GERENTE_PASSWORD`
 - `SWEETPOS_BOOTSTRAP_VENDEDOR_PASSWORD`
 
-Cada valor debe tener al menos 12 caracteres. No los pongas en Git, archivos `.env` dentro del repositorio, el Dockerfile ni argumentos de compilación. Cuando la base persistente ya tenga las cuentas, elimina esos tres secretos de la configuración de ejecución; la aplicación no los necesita después de inicializar usuarios.
+Las tres contraseñas de inicialización solo se requieren cuando la base no tiene usuarios. Configúralas como secretos de ejecución en el administrador autorizado, con al menos 12 caracteres. Tras crear las cuentas, puedes retirar esos tres secretos de la configuración. Si usas SQLite, configura también `SWEETPOS_DB_PATH` si necesitas guardar la base en otra ruta persistente.
 
-La primera ejecución local de `iniciar_sistema.bat` también necesita esas variables en el entorno de Windows. Las instalaciones existentes con usuarios ya creados no necesitan volver a configurarlas.
-
-El Docker context excluye la base SQLite local, archivos `.env`, credenciales comunes, pruebas, documentación y configuración local de Vercel. No incluye scripts de inicialización manual en la imagen.
+En Dokploy, selecciona PostgreSQL automático para la aplicación y confirma que `DATABASE_URL` está disponible dentro del contenedor. Cada push a la rama configurada inicia un despliegue; confirma la rama antes de subir cambios.
 
 ## Compilar y ejecutar localmente
 
-Crea un archivo de entorno fuera del repositorio con los tres secretos de inicialización y úsalo solo al ejecutar el contenedor. No lo pases como argumento de compilación.
+El contenedor puede probarse con SQLite. Configura las tres contraseñas de inicialización en un archivo de entorno fuera del repositorio y móntalo solo al ejecutar:
 
 ```sh
 docker build -t sweetpos:local .
@@ -35,12 +36,14 @@ El estado de salud esperado es `healthy`. El volumen `sweetpos-data` conserva la
 
 ```sh
 php tests/test_bootstrap_users.php
+php tests/test_db_connection.php
 php tests/test_pdf.php
 ```
 
-## GitHub y Hexper Ops
+## Proveedor GitHub
 
-En Hexper Ops, selecciona el proveedor GitHub asignado, el repositorio y la rama autorizada. Usa `/` como ruta de compilación y deja que Hexper Ops configure el puerto interno 8080. Verifica en Dokploy que el volumen `/data` persista antes de confirmar el despliegue. El proveedor GitHub, la asignación a usuarios y el disparador de despliegues automáticos se configuran fuera de este repositorio.
+El proveedor de GitHub, la asignación de proveedor a usuarios y el disparador automático de despliegues se configuran fuera de este repositorio. Usa una invitación restringida de Dokploy y autoriza solamente los repositorios necesarios. Nunca pegues tokens, contraseñas ni claves privadas en Hexper Ops o en herramientas de IA.
+
 ## Seguridad de cuentas existentes
 
 Versiones anteriores del repositorio contenían contraseñas iniciales en el código. El código actual ya no las incluye, pero eliminar archivos actuales no borra commits anteriores. Si este repositorio se compartió o esas cuentas se inicializaron antes, cambia las contraseñas de las tres cuentas antes de producción y no reutilices las anteriores. La limpieza del historial Git requiere un cambio coordinado del historial remoto.

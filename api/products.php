@@ -100,7 +100,7 @@ function saveFullProduct(PDO $pdo, array $data): array {
     if ($productId === null) {
         $stmt = $pdo->prepare("INSERT INTO products (name, category, price, stock, image_color, min_stock, is_active) VALUES (?, ?, ?, 0, ?, ?, ?)");
         $stmt->execute([$name, $category, (float)$price, $color, $minStock, $isActive]);
-        $productId = (int)$pdo->lastInsertId();
+        $productId = sweetposLastInsertId($pdo, 'products');
     } else {
         $stmt = $pdo->prepare("UPDATE products SET name=?, category=?, price=?, image_color=?, min_stock=?, is_active=? WHERE id=?");
         $stmt->execute([$name, $category, (float)$price, $color, $minStock, $isActive, $productId]);
@@ -207,7 +207,7 @@ switch ($method) {
                 $data['image_color'] ?? '#fbcfe8',
                 max(0, (int)($data['min_stock'] ?? 0))
             ]);
-            $productId = (int)$pdo->lastInsertId();
+            $productId = sweetposLastInsertId($pdo, 'products');
             if ($initialStock > 0) {
                 changeProductStock($pdo, $productId, $initialStock, StockReason::PURCHASE, null, 'Stock inicial');
             }

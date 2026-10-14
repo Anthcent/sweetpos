@@ -3,7 +3,40 @@
 // Included by api/db.php on every connection. Each migration runs once, inside
 // its own write transaction, and is recorded in the schema_version table.
 
+function migrationDriver(PDO $pdo): string {
+    return function_exists('sweetposDatabaseDriver')
+        ? sweetposDatabaseDriver($pdo)
+        : (string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+}
+
+/** Apply the small set of schema type/transaction differences between SQLite and PostgreSQL. */
+function migrationExec(PDO $pdo, string $sql): int|false {
+    $driver = migrationDriver($pdo);
+    $command = strtoupper(trim($sql));
+    if ($command === 'BEGIN IMMEDIATE') {
+        return $driver === 'pgsql' ? (int)$pdo->beginTransaction() : $pdo->exec($sql);
+    }
+    if ($command === 'COMMIT') {
+        if ($driver === 'pgsql') { $pdo->commit(); return 0; }
+        return $pdo->exec($sql);
+    }
+    if ($command === 'ROLLBACK') {
+        if ($driver === 'pgsql') { if ($pdo->inTransaction()) $pdo->rollBack(); return 0; }
+        return $pdo->exec($sql);
+    }
+    if ($driver === 'pgsql') {
+        $sql = preg_replace('/\\bINTEGER\\s+PRIMARY\\s+KEY\\s+AUTOINCREMENT\\b/i', 'SERIAL PRIMARY KEY', $sql);
+        $sql = preg_replace('/\\bDATETIME\\b/i', 'TIMESTAMP', $sql);
+    }
+    return $pdo->exec($sql);
+}
+
 function migrationColumnExists(PDO $pdo, string $table, string $column): bool {
+    if (migrationDriver($pdo) === 'pgsql') {
+        $stmt = $pdo->prepare('SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?');
+        $stmt->execute([strtolower($table), strtolower($column)]);
+        return (bool)$stmt->fetchColumn();
+    }
     foreach ($pdo->query("PRAGMA table_info(" . $table . ")")->fetchAll(PDO::FETCH_ASSOC) as $col) {
         if (strcasecmp($col['name'], $column) === 0) return true;
     }
@@ -12,7 +45,7 @@ function migrationColumnExists(PDO $pdo, string $table, string $column): bool {
 
 function migrationAddColumn(PDO $pdo, string $table, string $column, string $definition): void {
     if (!migrationColumnExists($pdo, $table, $column)) {
-        $pdo->exec("ALTER TABLE $table ADD COLUMN $column $definition");
+        migrationExec($pdo, "ALTER TABLE $table ADD COLUMN $column $definition");
     }
 }
 
@@ -23,7 +56,7 @@ function migrationList(): array {
         // 1. Baseline: every table created by init_db.php / update_db*.php, so a
         //    fresh install works even if those scripts were never run.
         1 => function (PDO $pdo) {
-            $pdo->exec("CREATE TABLE IF NOT EXISTS products (
+            migrationExec($pdo, "CREATE TABLE IF NOT EXISTS products (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 category TEXT NOT NULL,
@@ -31,7 +64,7 @@ function migrationList(): array {
                 stock INTEGER NOT NULL DEFAULT 0,
                 image_color TEXT DEFAULT '#fbcfe8'
             )");
-            $pdo->exec("CREATE TABLE IF NOT EXISTS sales (
+            migrationExec($pdo, "CREATE TABLE IF NOT EXISTS sales (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 total_amount REAL NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -41,7 +74,7 @@ function migrationList(): array {
             migrationAddColumn($pdo, 'sales', 'payment_method', 'TEXT DEFAULT NULL');
             migrationAddColumn($pdo, 'sales', 'client_id', 'INTEGER DEFAULT NULL');
             migrationAddColumn($pdo, 'sales', 'reference_number', 'TEXT DEFAULT NULL');
-            $pdo->exec("CREATE TABLE IF NOT EXISTS sale_items (
+            migrationExec($pdo, "CREATE TABLE IF NOT EXISTS sale_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 sale_id INTEGER NOT NULL,
                 product_id INTEGER NOT NULL,
@@ -50,7 +83,7 @@ function migrationList(): array {
                 FOREIGN KEY (sale_id) REFERENCES sales(id),
                 FOREIGN KEY (product_id) REFERENCES products(id)
             )");
-            $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
+            migrationExec($pdo, "CREATE TABLE IF NOT EXISTS clients (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cedula TEXT UNIQUE NOT NULL,
                 name TEXT NOT NULL,
@@ -58,14 +91,14 @@ function migrationList(): array {
                 address TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )");
-            $pdo->exec("CREATE TABLE IF NOT EXISTS users (
+            migrationExec($pdo, "CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 role TEXT NOT NULL CHECK(role IN ('admin', 'gerente', 'vendedor')),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )");
-            $pdo->exec("CREATE TABLE IF NOT EXISTS materials (
+            migrationExec($pdo, "CREATE TABLE IF NOT EXISTS materials (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 unit TEXT NOT NULL DEFAULT 'unidades',
@@ -73,7 +106,7 @@ function migrationList(): array {
                 min_stock REAL NOT NULL DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )");
-            $pdo->exec("CREATE TABLE IF NOT EXISTS product_materials (
+            migrationExec($pdo, "CREATE TABLE IF NOT EXISTS product_materials (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 product_id INTEGER NOT NULL,
                 material_id INTEGER NOT NULL,
@@ -82,7 +115,7 @@ function migrationList(): array {
                 FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE,
                 UNIQUE(product_id, material_id)
             )");
-            $pdo->exec("CREATE TABLE IF NOT EXISTS production_log (
+            migrationExec($pdo, "CREATE TABLE IF NOT EXISTS production_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 product_id INTEGER NOT NULL,
                 quantity_produced INTEGER NOT NULL,
@@ -95,7 +128,7 @@ function migrationList(): array {
         // 2. Stock ledger: every stock change for materials and products.
         //    item_id is polymorphic (material or product), so it has no FK.
         2 => function (PDO $pdo) {
-            $pdo->exec("CREATE TABLE IF NOT EXISTS stock_movements (
+            migrationExec($pdo, "CREATE TABLE IF NOT EXISTS stock_movements (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 item_type TEXT NOT NULL CHECK(item_type IN ('material', 'product')),
                 item_id INTEGER NOT NULL,
@@ -107,8 +140,8 @@ function migrationList(): array {
                 unit_cost REAL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )");
-            $pdo->exec("CREATE INDEX IF NOT EXISTS idx_stock_movements_item ON stock_movements(item_type, item_id)");
-            $pdo->exec("CREATE INDEX IF NOT EXISTS idx_stock_movements_reason_ref ON stock_movements(reason, ref_id)");
+            migrationExec($pdo, "CREATE INDEX IF NOT EXISTS idx_stock_movements_item ON stock_movements(item_type, item_id)");
+            migrationExec($pdo, "CREATE INDEX IF NOT EXISTS idx_stock_movements_reason_ref ON stock_movements(reason, ref_id)");
         },
 
         // 3. Product flags.
@@ -124,7 +157,7 @@ function migrationList(): array {
 
         // 5. Remove recipe rows left behind while foreign keys were disabled.
         5 => function (PDO $pdo) {
-            $pdo->exec("DELETE FROM product_materials
+            migrationExec($pdo, "DELETE FROM product_materials
                         WHERE product_id NOT IN (SELECT id FROM products)
                            OR material_id NOT IN (SELECT id FROM materials)");
         },
@@ -135,21 +168,21 @@ function migrationList(): array {
             migrationAddColumn($pdo, 'sales', 'voided_at', 'DATETIME DEFAULT NULL');
             migrationAddColumn($pdo, 'sales', 'voided_by', 'TEXT DEFAULT NULL');
             migrationAddColumn($pdo, 'sales', 'void_reason', 'TEXT DEFAULT NULL');
-            $pdo->exec("CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items(sale_id)");
+            migrationExec($pdo, "CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items(sale_id)");
         },
 
         // 7. Indexes for the movements browser and the decision panel date windows.
         7 => function (PDO $pdo) {
-            $pdo->exec("CREATE INDEX IF NOT EXISTS idx_stock_movements_item_date ON stock_movements(item_type, item_id, created_at)");
-            $pdo->exec("CREATE INDEX IF NOT EXISTS idx_stock_movements_date ON stock_movements(created_at)");
-            $pdo->exec("CREATE INDEX IF NOT EXISTS idx_sales_status_date ON sales(status, created_at)");
+            migrationExec($pdo, "CREATE INDEX IF NOT EXISTS idx_stock_movements_item_date ON stock_movements(item_type, item_id, created_at)");
+            migrationExec($pdo, "CREATE INDEX IF NOT EXISTS idx_stock_movements_date ON stock_movements(created_at)");
+            migrationExec($pdo, "CREATE INDEX IF NOT EXISTS idx_sales_status_date ON sales(status, created_at)");
         },
 
         // 8. Integrity report: records every foreign-key orphan found by
         //    PRAGMA foreign_key_check. Nothing is deleted (sales history is kept);
         //    `php api/migrate.php --check` lists current orphans at any time.
         8 => function (PDO $pdo) {
-            $pdo->exec("CREATE TABLE IF NOT EXISTS integrity_report (
+            migrationExec($pdo, "CREATE TABLE IF NOT EXISTS integrity_report (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 migration_version INTEGER NOT NULL,
                 table_name TEXT NOT NULL,
@@ -175,7 +208,7 @@ function migrationList(): array {
         10 => function (PDO $pdo) {
             $stmt = $pdo->query("SELECT COUNT(*) FROM products");
             if ($stmt->fetchColumn() == 0) {
-                $pdo->exec("INSERT INTO products (name, category, price, stock, image_color) VALUES 
+                migrationExec($pdo, "INSERT INTO products (name, category, price, stock, image_color) VALUES
                     ('Helado Vainilla', 'Helados', 2.50, 50, '#fef3c7'),
                     ('Helado Chocolate', 'Helados', 3.00, 40, '#fed7aa'),
                     ('Helado Fresa', 'Helados', 2.50, 60, '#fbcfe8'),
@@ -190,6 +223,40 @@ function migrationList(): array {
 
 // Rows whose foreign key points to a missing parent. Read-only.
 function findForeignKeyOrphans(PDO $pdo): array {
+    if (migrationDriver($pdo) === 'pgsql') {
+        $foreignKeys = $pdo->query("SELECT child.relname AS table_name, parent.relname AS parent_table,
+                child_col.attname AS child_column, parent_col.attname AS parent_column,
+                keys.ordinality AS fk_index
+            FROM pg_constraint fk
+            JOIN pg_class child ON child.oid = fk.conrelid
+            JOIN pg_namespace ns ON ns.oid = child.relnamespace
+            JOIN pg_class parent ON parent.oid = fk.confrelid
+            JOIN LATERAL unnest(fk.conkey, fk.confkey) WITH ORDINALITY AS keys(child_attnum, parent_attnum, ordinality) ON TRUE
+            JOIN pg_attribute child_col ON child_col.attrelid = child.oid AND child_col.attnum = keys.child_attnum
+            JOIN pg_attribute parent_col ON parent_col.attrelid = parent.oid AND parent_col.attnum = keys.parent_attnum
+            WHERE fk.contype = 'f' AND ns.nspname = current_schema()")->fetchAll(PDO::FETCH_ASSOC);
+        $orphans = [];
+        foreach ($foreignKeys as $fk) {
+            $quote = fn(string $name): string => '"' . str_replace('"', '""', $name) . '"';
+            $table = $quote($fk['table_name']);
+            $parent = $quote($fk['parent_table']);
+            $childColumn = $quote($fk['child_column']);
+            $parentColumn = $quote($fk['parent_column']);
+            $stmt = $pdo->query("SELECT child.id FROM $table child
+                LEFT JOIN $parent parent ON parent.$parentColumn = child.$childColumn
+                WHERE child.$childColumn IS NOT NULL AND parent.$parentColumn IS NULL");
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $rowId) {
+                $orphans[] = [
+                    'table' => $fk['table_name'],
+                    'rowid' => $rowId === null ? null : (int)$rowId,
+                    'parent' => $fk['parent_table'],
+                    'fkid' => (int)$fk['fk_index'],
+                ];
+            }
+        }
+        return $orphans;
+    }
+
     $rows = $pdo->query("PRAGMA foreign_key_check")->fetchAll(PDO::FETCH_ASSOC);
     return array_map(fn($r) => [
         'table'  => $r['table'],
@@ -206,33 +273,39 @@ function currentSchemaVersion(PDO $pdo): int {
 // Applies pending migrations. Safe to call on every request: when the schema is
 // up to date it costs a single SELECT.
 function runMigrations(PDO $pdo): void {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS schema_version (
+    migrationExec($pdo, "CREATE TABLE IF NOT EXISTS schema_version (
         version INTEGER PRIMARY KEY,
         applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )");
 
-    $migrations = migrationList();
-    $latest = max(array_keys($migrations));
-    if (currentSchemaVersion($pdo) >= $latest) return;
+    $driver = migrationDriver($pdo);
+    if ($driver === 'pgsql') $pdo->query('SELECT pg_advisory_lock(728374625)');
+    try {
+        $migrations = migrationList();
+        $latest = max(array_keys($migrations));
+        if (currentSchemaVersion($pdo) >= $latest) return;
 
-    ksort($migrations);
-    foreach ($migrations as $version => $migrate) {
-        // BEGIN IMMEDIATE takes the write lock up front, so two concurrent
-        // requests cannot apply the same migration twice.
-        $pdo->exec("BEGIN IMMEDIATE");
-        try {
-            if (currentSchemaVersion($pdo) >= $version) {
-                $pdo->exec("COMMIT");
-                continue;
+        ksort($migrations);
+        foreach ($migrations as $version => $migrate) {
+            // SQLite takes its write lock up front; PostgreSQL uses an advisory
+            // lock for the whole runner so parallel app starts cannot race.
+            migrationExec($pdo, "BEGIN IMMEDIATE");
+            try {
+                if (currentSchemaVersion($pdo) >= $version) {
+                    migrationExec($pdo, "COMMIT");
+                    continue;
+                }
+                $migrate($pdo);
+                $stmt = $pdo->prepare("INSERT INTO schema_version (version) VALUES (?)");
+                $stmt->execute([$version]);
+                migrationExec($pdo, "COMMIT");
+            } catch (Throwable $e) {
+                migrationExec($pdo, "ROLLBACK");
+                throw $e;
             }
-            $migrate($pdo);
-            $stmt = $pdo->prepare("INSERT INTO schema_version (version) VALUES (?)");
-            $stmt->execute([$version]);
-            $pdo->exec("COMMIT");
-        } catch (Throwable $e) {
-            $pdo->exec("ROLLBACK");
-            throw $e;
         }
+    } finally {
+        if ($driver === 'pgsql') $pdo->query('SELECT pg_advisory_unlock(728374625)');
     }
 }
 
@@ -240,10 +313,8 @@ function runMigrations(PDO $pdo): void {
 //   php api/migrate.php          applies pending migrations and exits.
 //   php api/migrate.php --check  read-only: prints foreign-key orphans (exit 1 if any).
 if (php_sapi_name() === 'cli' && realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
-    $cliDbPath = getenv('SWEETPOS_DB_PATH') ?: __DIR__ . '/../db/database.sqlite';
-    $cliPdo = new PDO("sqlite:" . $cliDbPath);
-    $cliPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $cliPdo->exec("PRAGMA foreign_keys = ON");
+    require_once __DIR__ . '/db_connection.php';
+    $cliPdo = sweetposConnectFromEnvironment();
 
     if (in_array('--check', $argv ?? [], true)) {
         $orphans = findForeignKeyOrphans($cliPdo);

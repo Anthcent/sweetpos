@@ -167,7 +167,7 @@ if ($method == 'GET') {
 
         $stmt = $pdo->prepare("INSERT INTO sales (total_amount, status, table_number, payment_method, client_id, reference_number, username) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([$total_amount, $status, $table_number, $payment_method, $client_id, $reference_number, currentUsername()]);
-        $sale_id = (int)$pdo->lastInsertId();
+        $sale_id = sweetposLastInsertId($pdo, 'sales');
 
         $stmt_item = $pdo->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, subtotal) VALUES (?, ?, ?, ?)");
         foreach ($lines as [$productId, $qty, $subtotal]) {

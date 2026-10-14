@@ -40,7 +40,7 @@ class PdfRequestException extends RuntimeException {
 
 // Idempotent; TODO: move into api/migrate.php as a versioned migration.
 function deliveryNotesEnsureSchema(PDO $pdo): void {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS delivery_notes (
+    migrationExec($pdo, "CREATE TABLE IF NOT EXISTS delivery_notes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sale_id INTEGER NOT NULL UNIQUE,
         seq INTEGER NOT NULL UNIQUE,
@@ -65,8 +65,10 @@ function deliveryNoteAssign(PDO $pdo, int $saleId, ?string $username): array {
     $note = $select->fetch(PDO::FETCH_ASSOC);
     if ($note) return $note;
 
-    $pdo->exec("BEGIN IMMEDIATE");
+    $isPostgres = sweetposDatabaseDriver($pdo) === 'pgsql';
+    if ($isPostgres) $pdo->query('SELECT pg_advisory_lock(728374626)');
     try {
+        sweetposBeginWrite($pdo);
         $select->execute([$saleId]);
         $note = $select->fetch(PDO::FETCH_ASSOC);
         if (!$note) {
@@ -76,10 +78,12 @@ function deliveryNoteAssign(PDO $pdo, int $saleId, ?string $username): array {
             $select->execute([$saleId]);
             $note = $select->fetch(PDO::FETCH_ASSOC);
         }
-        $pdo->exec("COMMIT");
+        sweetposCommitWrite($pdo);
     } catch (Throwable $e) {
-        $pdo->exec("ROLLBACK");
+        sweetposRollbackWrite($pdo);
         throw $e;
+    } finally {
+        if ($isPostgres) $pdo->query('SELECT pg_advisory_unlock(728374626)');
     }
     return $note;
 }
@@ -229,12 +233,12 @@ function pdfBuildSalesReport(PDO $pdo, ?string $from, ?string $to, array $option
     uasort($byMethod, fn($a, $b) => $b[1] <=> $a[1]);
 
     $top = $pdo->prepare(
-        "SELECT COALESCE(p.name, 'Producto #' || si.product_id) AS name, SUM(si.quantity) AS units, SUM(si.subtotal) AS amount
+        "SELECT COALESCE(p.name, 'Producto #' || CAST(si.product_id AS TEXT)) AS name, SUM(si.quantity) AS units, SUM(si.subtotal) AS amount
          FROM sale_items si
          JOIN sales s ON s.id = si.sale_id
          LEFT JOIN products p ON p.id = si.product_id
          WHERE s.status = 'paid' AND s.created_at >= ? AND s.created_at < ?
-         GROUP BY si.product_id
+         GROUP BY si.product_id, p.id, p.name
          ORDER BY units DESC, amount DESC
          LIMIT 10"
     );

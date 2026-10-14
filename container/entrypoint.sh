@@ -1,15 +1,16 @@
 #!/bin/sh
 set -eu
 
+# Keep the SQLite volume as a local-development fallback. With Dokploy's managed
+# PostgreSQL, api/db.php reads DATABASE_URL and runs migrations on that database.
 : "${SWEETPOS_DB_PATH:=/data/database.sqlite}"
 export SWEETPOS_DB_PATH
+if [ -z "${DATABASE_URL:-}" ]; then
+    mkdir -p "$(dirname "$SWEETPOS_DB_PATH")"
+fi
 
-db_dir=$(dirname "$SWEETPOS_DB_PATH")
-mkdir -p "$db_dir"
-
-# Apply every pending SQLite migration and provision the initial accounts before
-# Apache accepts traffic. The database directory must be writable by www-data.
-php /var/www/html/api/migrate.php
+# The shared DB bootstrap applies pending migrations and provisions initial
+# accounts before Apache accepts traffic.
 php /usr/local/lib/sweetpos/bootstrap-users.php
 
 exec apache2-foreground

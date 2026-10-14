@@ -23,10 +23,13 @@ switch ($method) {
         } else {
             // Listado de productos activos con lo que se puede elaborar ahora (can_make)
             // y el insumo que lo limita. ROUND(..., 6) evita 0.3/0.1 = 2.9999 -> 2.
+            $nonNegativeStock = sweetposDatabaseDriver($pdo) === 'pgsql'
+                ? 'GREATEST(m.stock, 0)'
+                : 'MAX(m.stock, 0)';
             $stmt = $pdo->query(
                 "WITH ratios AS (
                     SELECT pm.product_id, m.name AS material_name,
-                           CAST(ROUND(MAX(m.stock, 0) / pm.quantity_required, 6) AS INTEGER) AS units
+                           CAST(ROUND(CAST($nonNegativeStock AS NUMERIC) / CAST(pm.quantity_required AS NUMERIC), 6) AS INTEGER) AS units
                     FROM product_materials pm JOIN materials m ON m.id = pm.material_id
                     WHERE pm.quantity_required > 0
                  ), ranked AS (

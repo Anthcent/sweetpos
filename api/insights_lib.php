@@ -41,52 +41,76 @@ function computeInsights(PDO $pdo, int $targetDays = 3): array {
     $targetDays = max(1, min(60, $targetDays));
     $window = INSIGHTS_WINDOW_DAYS;
 
+    // Database timestamps are UTC. Convert shop-local day boundaries in PHP and
+    // bind ordinary timestamps so both PDO drivers use the same query semantics.
+    $businessConfig = require __DIR__ . '/../config/business.php';
+    $shopTimezone = new DateTimeZone($businessConfig['timezone'] ?? 'UTC');
+    $nowUtc = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+    $todayLocalStart = $nowUtc->setTimezone($shopTimezone)->setTime(0, 0);
+    $todayStartUtc = $todayLocalStart->setTimezone(new DateTimeZone('UTC'));
+    $tomorrowStartUtc = $todayLocalStart->modify('+1 day')->setTimezone(new DateTimeZone('UTC'));
+    $sevenDaysAgo = $nowUtc->modify('-7 days');
+    $windowStart = $nowUtc->modify('-' . $window . ' days');
+    $timestamp = fn(DateTimeImmutable $date): string => $date->format('Y-m-d H:i:s');
+
     // 1. Sales KPIs + history length, in one pass over the window.
-    $kpi = $pdo->query(
+    $kpiStmt = $pdo->prepare(
         "SELECT
-            COALESCE(SUM(CASE WHEN date(created_at, 'localtime') = date('now', 'localtime') THEN total_amount END), 0) AS sales_today,
-            COALESCE(SUM(CASE WHEN date(created_at, 'localtime') = date('now', 'localtime') THEN 1 END), 0) AS orders_today,
-            COALESCE(SUM(CASE WHEN created_at >= datetime('now', '-7 days') THEN total_amount END), 0) AS sales_7d,
-            (SELECT MIN(created_at) FROM sales WHERE status IN ('paid', 'pending')) AS first_sale_at,
-            (SELECT julianday('now') - julianday(MIN(created_at)) FROM sales WHERE status IN ('paid', 'pending')) AS history_days
+            COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? THEN total_amount END), 0) AS sales_today,
+            COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? THEN 1 END), 0) AS orders_today,
+            COALESCE(SUM(CASE WHEN created_at >= ? THEN total_amount END), 0) AS sales_7d,
+            (SELECT MIN(created_at) FROM sales WHERE status IN ('paid', 'pending')) AS first_sale_at
          FROM sales
-         WHERE status IN ('paid', 'pending') AND created_at >= datetime('now', '-$window days')"
-    )->fetch();
-    $historyDays = $kpi['history_days'] === null ? $window : (float)$kpi['history_days'];
+         WHERE status IN ('paid', 'pending') AND created_at >= ?"
+    );
+    $kpiStmt->execute([
+        $timestamp($todayStartUtc), $timestamp($tomorrowStartUtc),
+        $timestamp($todayStartUtc), $timestamp($tomorrowStartUtc),
+        $timestamp($sevenDaysAgo), $timestamp($windowStart),
+    ]);
+    $kpi = $kpiStmt->fetch();
+    $historyDays = $kpi['first_sale_at'] === null
+        ? $window
+        : ($nowUtc->getTimestamp() - (new DateTimeImmutable($kpi['first_sale_at'], new DateTimeZone('UTC')))->getTimestamp()) / 86400;
     $windowDays = (int)max(1, min($window, ceil($historyDays)));
 
-    // Daily totals for the sparkline (last 14 local days). Days are generated in SQL
-    // so they use the same clock as date(created_at, 'localtime').
-    $sparkline = array_map(fn($r) => ['day' => $r['day'], 'total' => (float)$r['total']], $pdo->query(
-        "WITH RECURSIVE days(day) AS (
-            SELECT date('now', 'localtime', '-13 days')
-            UNION ALL SELECT date(day, '+1 day') FROM days WHERE day < date('now', 'localtime')
-         ), totals AS (
-            SELECT date(created_at, 'localtime') AS day, SUM(total_amount) AS total
-            FROM sales
-            WHERE status IN ('paid', 'pending') AND created_at >= datetime('now', '-15 days')
-            GROUP BY 1
-         )
-         SELECT days.day, ROUND(COALESCE(totals.total, 0), 2) AS total
-         FROM days LEFT JOIN totals ON totals.day = days.day
-         ORDER BY days.day"
-    )->fetchAll());
+    // Aggregate the last 14 shop-local days in PHP; date/time SQL functions
+    // differ between SQLite and PostgreSQL.
+    $firstSparkDay = $todayLocalStart->modify('-13 days');
+    $sparkStartUtc = $firstSparkDay->setTimezone(new DateTimeZone('UTC'));
+    $sparkStmt = $pdo->prepare("SELECT created_at, total_amount FROM sales
+        WHERE status IN ('paid', 'pending') AND created_at >= ? AND created_at < ?");
+    $sparkStmt->execute([$timestamp($sparkStartUtc), $timestamp($tomorrowStartUtc)]);
+    $dailyTotals = [];
+    foreach ($sparkStmt->fetchAll() as $sale) {
+        $day = (new DateTimeImmutable($sale['created_at'], new DateTimeZone('UTC')))
+            ->setTimezone($shopTimezone)->format('Y-m-d');
+        $dailyTotals[$day] = ($dailyTotals[$day] ?? 0.0) + (float)$sale['total_amount'];
+    }
+    $sparkline = [];
+    for ($day = $firstSparkDay; $day <= $todayLocalStart; $day = $day->modify('+1 day')) {
+        $dayKey = $day->format('Y-m-d');
+        $sparkline[] = ['day' => $dayKey, 'total' => round($dailyTotals[$dayKey] ?? 0.0, 2)];
+    }
 
     // 2. Products: sales aggregates + producible units, one query.
-    //    ROUND(..., 6) before the integer cast avoids 0.3/0.1 = 2.9999 -> 2.
-    $products = $pdo->query(
+    // ROUND(..., 6) before the integer cast avoids 0.3/0.1 -> 2.9999 -> 2.
+    $nonNegativeStock = sweetposDatabaseDriver($pdo) === 'pgsql'
+        ? 'GREATEST(m.stock, 0)'
+        : 'MAX(m.stock, 0)';
+    $productStmt = $pdo->prepare(
         "WITH sold AS (
             SELECT si.product_id,
-                   SUM(CASE WHEN s.created_at >= datetime('now', '-7 days') THEN si.quantity ELSE 0 END) AS sold_7d,
+                   SUM(CASE WHEN s.created_at >= ? THEN si.quantity ELSE 0 END) AS sold_7d,
                    SUM(si.quantity) AS sold_30d
             FROM sale_items si
             JOIN sales s ON s.id = si.sale_id
-            WHERE s.status IN ('paid', 'pending') AND s.created_at >= datetime('now', '-$window days')
+            WHERE s.status IN ('paid', 'pending') AND s.created_at >= ?
             GROUP BY si.product_id
          ), recipe AS (
             SELECT pm.product_id,
                    COUNT(*) AS recipe_items,
-                   MIN(CAST(ROUND(MAX(m.stock, 0) / pm.quantity_required, 6) AS INTEGER)) AS can_make
+                   MIN(CAST(ROUND(CAST($nonNegativeStock AS NUMERIC) / CAST(pm.quantity_required AS NUMERIC), 6) AS INTEGER)) AS can_make
             FROM product_materials pm
             JOIN materials m ON m.id = pm.material_id
             WHERE pm.quantity_required > 0
@@ -101,7 +125,9 @@ function computeInsights(PDO $pdo, int $targetDays = 3): array {
          LEFT JOIN recipe ON recipe.product_id = p.id
          WHERE p.is_active = 1
          ORDER BY sold_30d DESC, sold_7d DESC, p.name ASC"
-    )->fetchAll();
+    );
+    $productStmt->execute([$timestamp($sevenDaysAgo), $timestamp($windowStart)]);
+    $products = $productStmt->fetchAll();
 
     // 3. Materials and 4. recipe lines (active products only).
     $materials = $pdo->query("SELECT id, name, unit, stock, min_stock, cost_per_unit FROM materials ORDER BY name ASC")->fetchAll();

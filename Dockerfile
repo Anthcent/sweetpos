@@ -1,5 +1,11 @@
 FROM php:8.4.26-apache-bookworm
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpq-dev libpq5 \
+    && docker-php-ext-install pdo_pgsql \
+    && apt-get purge -y --auto-remove libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV SWEETPOS_DB_PATH=/data/database.sqlite \
     APACHE_RUN_DIR=/tmp/sweetpos-apache \
     APACHE_PID_FILE=/tmp/sweetpos-apache/apache2.pid \

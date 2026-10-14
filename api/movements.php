@@ -54,16 +54,26 @@ if ($reason !== '') {
     $params[] = $reason;
 }
 
-// created_at is stored in UTC; the filter dates are local days. The bounds are
-// converted to UTC so the (item_type, item_id, created_at) index stays usable.
-$isDate = fn($v) => is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v);
-if ($isDate($_GET['date_from'] ?? null)) {
-    $where[] = "sm.created_at >= datetime(?, 'utc')";
-    $params[] = $_GET['date_from'] . ' 00:00:00';
-}
-if ($isDate($_GET['date_to'] ?? null)) {
-    $where[] = "sm.created_at < datetime(?, '+1 day', 'utc')";
-    $params[] = $_GET['date_to'] . ' 00:00:00';
+// created_at is UTC; convert shop-local calendar days to UTC in PHP so the
+// indexed timestamp column can be compared by both SQLite and PostgreSQL.
+$businessConfig = require __DIR__ . '/../config/business.php';
+$shopTimezone = new DateTimeZone($businessConfig['timezone'] ?? 'UTC');
+$dateBound = function ($value, bool $exclusiveEnd = false) use ($shopTimezone): ?string {
+    if (!is_string($value) || !preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $match)
+        || !checkdate((int)$match[2], (int)$match[3], (int)$match[1])) return null;
+    $date = new DateTimeImmutable($value . ' 00:00:00', $shopTimezone);
+    if ($exclusiveEnd) $date = $date->modify('+1 day');
+    return $date->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+};
+foreach (['date_from' => false, 'date_to' => true] as $key => $exclusiveEnd) {
+    if (!isset($_GET[$key]) || $_GET[$key] === '') continue;
+    $bound = $dateBound($_GET[$key], $exclusiveEnd);
+    if ($bound === null) {
+        jsonError('Fecha inválida. Usa el formato YYYY-MM-DD.');
+        exit();
+    }
+    $where[] = $key === 'date_from' ? 'sm.created_at >= ?' : 'sm.created_at < ?';
+    $params[] = $bound;
 }
 
 $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
