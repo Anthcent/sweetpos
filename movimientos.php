@@ -153,6 +153,15 @@
             return params;
         }
 
+        async function readApiJson(response) {
+            const body = await response.text();
+            try {
+                return JSON.parse(body);
+            } catch (_) {
+                throw new Error(`El servidor devolvió una respuesta inválida (HTTP ${response.status}).`);
+            }
+        }
+
         async function loadMovements() {
             const table = document.getElementById('movements-table');
             const params = currentFilters();
@@ -162,7 +171,7 @@
             history.replaceState(null, '', location.pathname + '?' + params.toString());
             try {
                 const res = await fetch('api/movements.php?' + params.toString());
-                const data = await res.json();
+                const data = await readApiJson(res);
                 if (!res.ok) throw new Error(data.error || 'Error');
                 renderMovements(data);
             } catch (e) {
@@ -216,7 +225,7 @@
 
             try {
                 const res = await fetch('api/movements.php?options=1');
-                if (res.ok) options = await res.json();
+                if (res.ok) options = await readApiJson(res);
             } catch (e) {}
             fillItemSelect(q.get('item_id') || '');
 

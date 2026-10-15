@@ -6,11 +6,26 @@
 //   ?reason=purchase|production|sale|adjustment|void
 //   ?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD   local dates, inclusive
 //   ?page=1&per_page=50
-header('Content-Type: application/json');
-require 'auth_api.php';
+ini_set('display_errors', '0');
+header('Content-Type: application/json; charset=utf-8');
+
+set_error_handler(static function (int $severity, string $message, string $file, int $line): bool {
+    if (!(error_reporting() & $severity)) return false;
+    error_log("SweetPOS movements API warning: $message in $file:$line");
+    return true;
+});
+
+set_exception_handler(static function (Throwable $e): void {
+    error_log('SweetPOS movements API failed: ' . $e->getMessage());
+    http_response_code(500);
+    if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['error' => 'No se pudieron cargar los movimientos.'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+});
+
+require_once __DIR__ . '/auth_api.php';
 apiRequireRole(['admin', 'gerente']);
-require 'db.php';
-require 'inventory.php';
+require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/inventory.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     jsonError("Metodo no permitido", 405);
@@ -23,7 +38,7 @@ if (!empty($_GET['options'])) {
     echo json_encode([
         "products"  => $pdo->query("SELECT id, name FROM products ORDER BY name ASC")->fetchAll(),
         "materials" => $pdo->query("SELECT id, name, unit FROM materials ORDER BY name ASC")->fetchAll(),
-    ]);
+    ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     exit();
 }
 
@@ -106,8 +121,9 @@ try {
         "per_page" => $perPage,
         "total"    => $total,
         "pages"    => max(1, (int)ceil($total / $perPage)),
-    ]);
+    ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
 } catch (PDOException $e) {
+    error_log('SweetPOS movements query failed: ' . $e->getMessage());
     jsonError("Error al obtener los movimientos", 500);
 }
 ?>
