@@ -66,6 +66,7 @@ function canAccess($module) {
         'pos'               => ['admin', 'gerente', 'vendedor'],
         'mesas'             => ['admin', 'gerente', 'vendedor'],
         'historial'         => ['admin', 'gerente'],
+        'reportes'          => ['admin', 'gerente'],
         'inventario'        => ['admin', 'gerente'],
         'inventario_delete' => ['admin'],
         'materiales'        => ['admin', 'gerente'],

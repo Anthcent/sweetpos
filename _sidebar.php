@@ -119,6 +119,21 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         </a>
         <?php endif; ?>
 
+        <!-- Reportes de caja, ventas e inventario — solo gerente y admin -->
+        <?php if (canAccess('reportes')): ?>
+        <?php
+        $active = $currentPage === 'reportes.php';
+        $cls = $active
+            ? 'bg-pink-50 text-pink-600 shadow-sm border border-pink-200/90 relative font-bold'
+            : 'text-slate-400 hover:bg-pink-50/50 hover:text-pink-600';
+        ?>
+        <a href="reportes.php" title="Reportes" class="w-full aspect-square rounded-2xl <?= $cls ?> flex flex-col items-center justify-center transition-all group">
+            <i data-lucide="clipboard-list" class="w-5 h-5 mb-1 group-hover:scale-110 transition-transform"></i>
+            <span class="text-[10px] tracking-tight">Reportes</span>
+            <?php if ($active): ?><div class="absolute inset-y-1.5 -left-3 w-1 bg-pink-500 rounded-r-full shadow-sm"></div><?php endif; ?>
+        </a>
+        <?php endif; ?>
+
         <!-- Movimientos de stock — solo gerente y admin -->
         <?php if (canAccess('movimientos')): ?>
         <?php

@@ -223,6 +223,14 @@ function migrationList(): array {
         11 => function (PDO $pdo) {
             migrationAddColumn($pdo, 'users', 'is_active', 'INTEGER NOT NULL DEFAULT 1');
         },
+
+        // 12. Record when an order was actually paid so cash reports group it
+        //     on the collection date, including orders paid after creation.
+        12 => function (PDO $pdo) {
+            migrationAddColumn($pdo, 'sales', 'paid_at', 'DATETIME DEFAULT NULL');
+            migrationExec($pdo, "UPDATE sales SET paid_at = created_at WHERE status = 'paid' AND paid_at IS NULL");
+            migrationExec($pdo, "CREATE INDEX IF NOT EXISTS idx_sales_paid_at ON sales(status, paid_at)");
+        },
     ];
 }
 

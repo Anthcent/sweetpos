@@ -46,6 +46,14 @@ php tests/test_pdf.php
 
 El proveedor de GitHub, la asignación de proveedor a usuarios y el disparador automático de despliegues se configuran fuera de este repositorio. Usa una invitación restringida de Dokploy y autoriza solamente los repositorios necesarios. Nunca pegues tokens, contraseñas ni claves privadas en Hexper Ops o en herramientas de IA.
 
+## Reportes
+
+Administradores y gerentes tienen acceso a **Reportes** en la barra lateral. El módulo emite cierres de caja diarios y mensuales, ranking de productos más vendidos y sugerencias para reponer productos e insumos. Cada reporte se puede descargar como Excel (`.xlsx`) o PDF.
+
+Los cierres agrupan los pagos por la fecha en que se recibieron, incluyen método de pago y vendedor, y muestran por separado las órdenes pendientes y anuladas. Las reposiciones se estiman con las ventas recientes, el stock mínimo, las recetas y el objetivo de cobertura seleccionado.
+
+El sistema no registra fondo inicial, efectivo contado, retiros, gastos ni devoluciones, por lo que los cierres reflejan pagos registrados y no una conciliación física de caja. Las fechas de cobros anteriores a la migración se estiman usando la fecha de creación disponible; no es posible reconstruir las fechas de pago o devolución que nunca se guardaron.
+
 ## Seguridad de cuentas existentes
 
 Versiones anteriores del repositorio contenían contraseñas iniciales en el código. El código actual ya no las incluye, pero eliminar archivos actuales no borra commits anteriores. Si este repositorio se compartió o esas cuentas se inicializaron antes, cambia las contraseñas de las tres cuentas antes de producción y no reutilices las anteriores. La limpieza del historial Git requiere un cambio coordinado del historial remoto.

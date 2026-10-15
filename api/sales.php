@@ -165,8 +165,11 @@ if ($method == 'GET') {
         }
         $total_amount = round($total_amount, 2);
 
-        $stmt = $pdo->prepare("INSERT INTO sales (total_amount, status, table_number, payment_method, client_id, reference_number, username) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$total_amount, $status, $table_number, $payment_method, $client_id, $reference_number, currentUsername()]);
+        $paidAt = $status === 'paid'
+            ? (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s')
+            : null;
+        $stmt = $pdo->prepare("INSERT INTO sales (total_amount, status, table_number, payment_method, client_id, reference_number, username, paid_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$total_amount, $status, $table_number, $payment_method, $client_id, $reference_number, currentUsername(), $paidAt]);
         $sale_id = sweetposLastInsertId($pdo, 'sales');
 
         $stmt_item = $pdo->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, subtotal) VALUES (?, ?, ?, ?)");
@@ -205,7 +208,7 @@ if ($method == 'GET') {
     }
 
     try {
-        $stmt = $pdo->prepare("UPDATE sales SET status = 'paid', payment_method = ?, reference_number = COALESCE(?, reference_number)
+        $stmt = $pdo->prepare("UPDATE sales SET status = 'paid', payment_method = ?, reference_number = COALESCE(?, reference_number), paid_at = CURRENT_TIMESTAMP
                                WHERE id = ? AND status = 'pending'");
         $stmt->execute([$payment_method, $reference, $saleId]);
         if ($stmt->rowCount() === 0) {
