@@ -82,5 +82,3 @@ function reportBuildWorkbookSheets(array $data): array {
     }
     return $sheets;
 }
-
-\n

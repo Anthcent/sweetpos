@@ -503,5 +503,3 @@ function reportBuildData(PDO $pdo, string $type, array $filters): array {
     $data['business_name'] = (string)($config['name'] ?? 'Sweet POS');
     return $data;
 }
-
-\n

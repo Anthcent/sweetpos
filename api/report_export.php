@@ -51,5 +51,3 @@ try {
     header('Content-Type: text/plain; charset=utf-8');
     echo 'No se pudo generar la exportación.';
 }
-
-\n

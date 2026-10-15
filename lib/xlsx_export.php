@@ -142,5 +142,3 @@ function sweetposBuildXlsx(array $sheets): string {
     foreach ($sheetFiles as $path => $contents) $files[$path] = $contents;
     return sweetposXlsxZip($files);
 }
-
-\n

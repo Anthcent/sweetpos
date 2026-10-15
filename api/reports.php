@@ -24,5 +24,3 @@ try {
     http_response_code(500);
     echo json_encode(['error' => 'No se pudo generar el reporte.'], JSON_UNESCAPED_UNICODE);
 }
-
-\n
