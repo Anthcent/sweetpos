@@ -35,7 +35,7 @@
                 </div>
                 <div>
                     <h1 class="text-lg sm:text-2xl font-extrabold tracking-tight text-slate-900 font-heading leading-tight">Elaboración & Recetas</h1>
-                    <p class="text-[11px] sm:text-xs text-slate-500 font-medium line-clamp-1 sm:line-clamp-none">Convierte materias primas en postres y helados listos</p>
+                    <p class="text-[11px] sm:text-xs text-slate-500 font-medium line-clamp-2 sm:line-clamp-none">Convierte materias primas en postres y helados listos</p>
                 </div>
             </div>
 
@@ -78,7 +78,7 @@
 
         <!-- BARRA DEDICADA DE FILTROS DE PRODUCCIÓN (100% VISIBLE Y DINÁMICA) -->
         <div class="px-4 sm:px-6 lg:px-8 pt-3.5 pb-1 shrink-0 z-10">
-            <div class="flex items-center gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar py-1 w-full">
+            <div class="filter-scroll-fade flex items-center gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar py-1 w-full">
                 <span class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider hidden sm:inline-flex items-center gap-1.5 mr-1 shrink-0 font-heading">
                     <i data-lucide="filter" class="w-3.5 h-3.5 text-pink-500"></i>
                     <span>Filtrar:</span>
@@ -117,8 +117,11 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 z-10 relative">
-            <div class="bg-white rounded-3xl shadow-card border border-slate-200/90 overflow-hidden">
-                <div class="overflow-x-auto w-full">
+            <div id="production-list" class="bg-white rounded-3xl shadow-card border border-slate-200/90 overflow-hidden">
+                <div id="production-cards" class="mobile-data-list md:hidden">
+                    <div class="mobile-data-empty">Cargando recetas y stock...</div>
+                </div>
+                <div class="hidden md:block overflow-x-auto w-full">
                     <table class="w-full min-w-[620px] text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200/80">
@@ -134,6 +137,7 @@
                         </tbody>
                     </table>
                 </div>
+                <div id="production-pager" class="responsive-pager hidden"></div>
             </div>
         </div>
     </main>
@@ -143,31 +147,68 @@
 
     <!-- Modal Editar Receta -->
     <div id="recipe-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 transition-opacity">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-[slideIn_0.2s_ease-out] border border-slate-100 max-h-[92dvh] flex flex-col">
-            <div class="px-5 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/70 shrink-0">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center">
-                        <i data-lucide="chef-hat" class="w-4 h-4 stroke-[2.2]"></i>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-[slideIn_0.2s_ease-out] border border-slate-100 max-h-[94dvh] flex flex-col">
+            <div class="px-5 sm:px-6 py-4 border-b border-slate-100 flex justify-between items-start gap-3 shrink-0">
+                <div class="flex items-start gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center shrink-0">
+                        <i data-lucide="chef-hat" class="w-5 h-5 stroke-[2.2]"></i>
                     </div>
-                    <h3 class="font-extrabold text-slate-800 font-heading text-sm sm:text-base">
-                        Receta: <span id="recipe-product-name" class="text-pink-600 font-bold"></span>
-                    </h3>
+                    <div class="min-w-0">
+                        <h3 id="recipe-product-name" class="font-extrabold text-slate-900 font-heading text-base sm:text-lg leading-tight truncate"></h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Cantidad de cada insumo para elaborar <strong class="text-slate-700">1 unidad</strong></p>
+                    </div>
                 </div>
-                <button type="button" onclick="document.getElementById('recipe-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 p-1">
+                <button type="button" onclick="closeRecipeModal()" class="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-2 rounded-lg shrink-0" title="Cerrar">
                     <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>
-            <form id="recipe-form" class="p-4 sm:p-6 flex flex-col gap-3 sm:gap-3.5 overflow-y-auto">
+
+            <!-- Live summary: what this recipe allows right now -->
+            <div id="recipe-summary" class="grid grid-cols-3 border-b border-slate-100 bg-slate-50/80 shrink-0 divide-x divide-slate-200/70">
+                <div class="px-3 sm:px-5 py-3">
+                    <span class="block text-[11px] font-bold text-slate-500">Puedes elaborar</span>
+                    <strong id="recipe-max" class="block text-xl font-black font-heading text-slate-400 leading-tight">—</strong>
+                </div>
+                <div class="px-3 sm:px-5 py-3">
+                    <span class="block text-[11px] font-bold text-slate-500">Costo por unidad</span>
+                    <strong id="recipe-cost" class="block text-xl font-black font-heading text-slate-800 leading-tight">$0.00</strong>
+                </div>
+                <div class="px-3 sm:px-5 py-3 min-w-0">
+                    <span class="block text-[11px] font-bold text-slate-500">Insumo que limita</span>
+                    <strong id="recipe-limit" class="block text-sm font-extrabold text-slate-400 leading-tight mt-1 truncate">—</strong>
+                </div>
+            </div>
+
+            <form id="recipe-form" class="flex flex-col min-h-0 flex-1">
                 <input type="hidden" id="recipe-product-id" value="">
-                <p class="text-xs text-slate-400">Insumos requeridos para elaborar <strong>1 unidad</strong> de este producto.</p>
-                <div id="recipe-rows" class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1"></div>
-                <button type="button" onclick="addRecipeRow()" class="w-full border border-dashed border-pink-200 text-pink-600 hover:bg-pink-50/50 rounded-xl py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
-                    <i data-lucide="plus" class="w-3.5 h-3.5 stroke-[2.2]"></i> Agregar insumo
-                </button>
-                <div id="recipe-error" class="hidden text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2"></div>
-                <button type="submit" class="btn-sweet-accent mt-2 w-full text-white font-extrabold py-3.5 rounded-2xl transition-all flex justify-center items-center gap-2 shadow-md">
-                    <i data-lucide="save" class="w-4 h-4 stroke-[2.2]"></i> Guardar Receta
-                </button>
+                <div class="p-4 sm:p-5 flex flex-col gap-4 overflow-y-auto min-h-0 flex-1">
+                    <!-- Material picker -->
+                    <div>
+                        <label for="recipe-search" class="block text-xs font-bold text-slate-700 mb-1.5">Agregar insumo</label>
+                        <div class="relative">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                            <input type="search" id="recipe-search" autocomplete="off" placeholder="Buscar por nombre: harina, azúcar, leche..." class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-200 focus:border-pink-300">
+                        </div>
+                        <div id="recipe-picker" class="mt-2 flex flex-wrap gap-1.5 max-h-28 overflow-y-auto"></div>
+                    </div>
+
+                    <!-- Ingredients -->
+                    <div>
+                        <div class="flex items-baseline justify-between mb-1.5">
+                            <span class="text-xs font-bold text-slate-700">Ingredientes <span id="recipe-count" class="text-slate-400 font-semibold">(0)</span></span>
+                        </div>
+                        <div id="recipe-rows" class="flex flex-col gap-2"></div>
+                    </div>
+
+                    <div id="recipe-error" class="hidden text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2"></div>
+                </div>
+
+                <div class="px-4 sm:px-5 py-3.5 border-t border-slate-100 flex gap-2 shrink-0 bg-white">
+                    <button type="button" onclick="closeRecipeModal()" class="px-4 py-3 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors">Cancelar</button>
+                    <button type="submit" class="btn-sweet-accent flex-1 text-white font-extrabold py-3 rounded-xl transition-all flex justify-center items-center gap-2 shadow-md">
+                        <i data-lucide="save" class="w-4 h-4 stroke-[2.2]"></i> Guardar receta
+                    </button>
+                </div>
             </form>
         </div>
     </div>
@@ -209,6 +250,8 @@
         let currentRecipe  = [];
 
         let currentProdFilter = 'all';
+        let prodPage = 1;
+        let prodFiltered = [];
 
         lucide.createIcons();
         document.addEventListener('DOMContentLoaded', async () => {
@@ -245,11 +288,23 @@
                 });
             });
 
+            SweetPagination.onBreakpointChange(() => {
+                prodPage = 1;
+                renderProductionTable(prodFiltered);
+            });
+
             await loadMaterials();
             await loadProduction();
 
-            // Deep link from panel.php: produccion.php?produce=<product_id>&qty=<units>
+            // Deep links: recipe=<product_id> opens the recipe editor.
             const params = new URLSearchParams(location.search);
+            const recipeId = Number(params.get('recipe'));
+            if (recipeId && productsCache.some(p => p.id === recipeId)) {
+                await openRecipeModal(recipeId);
+                history.replaceState(null, '', location.pathname);
+            }
+
+            // Deep link from panel.php: produccion.php?produce=<product_id>&qty=<units>
             const produceId = Number(params.get('produce'));
             if (produceId && productsCache.some(p => p.id === produceId)) {
                 await openProduceModal(produceId);
@@ -261,10 +316,12 @@
             }
             if (params.has('produce')) history.replaceState(null, '', location.pathname);
         });
-        document.addEventListener('product:created', async () => {
+        const refreshAfterProductSave = async () => {
             await loadMaterials();
             await loadProduction();
-        });
+        };
+        document.addEventListener('product:created', refreshAfterProductSave);
+        document.addEventListener('product:updated', refreshAfterProductSave);
 
         async function loadMaterials() {
             try {
@@ -304,6 +361,8 @@
                 filterProduction();
             } catch (e) {
                 table.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-rose-500 font-medium">Error al cargar recetas.</td></tr>';
+                const cards = document.getElementById('production-cards');
+                if (cards) cards.innerHTML = '<div class="mobile-data-empty text-rose-500">Error al cargar recetas.</div>';
             }
         }
 
@@ -327,7 +386,7 @@
             if (elMissing) elMissing.textContent = missing;
         }
 
-        function filterProduction() {
+        function filterProduction(resetPage = true) {
             const q = (document.getElementById('production-search')?.value || '').trim().toLowerCase();
             const clearBtn = document.getElementById('production-search-clear');
             const countEl = document.getElementById('production-search-count');
@@ -367,6 +426,8 @@
                 }
             }
 
+            prodFiltered = filtered;
+            if (resetPage) prodPage = 1;
             renderProductionTable(filtered);
         }
 
@@ -383,29 +444,75 @@
             }
         }
 
+        function productionAvailability(p) {
+            const hasRecipe = p.recipe_items > 0;
+            if (!hasRecipe) {
+                return `<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">Sin receta</span>`;
+            }
+            if (p.max_producible <= 0) {
+                return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">Falta material</span>`;
+            }
+            return `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">● ${p.max_producible} unid. posibles</span>`;
+        }
+
+        function productionCardHtml(p) {
+            const hasRecipe = p.recipe_items > 0;
+            const maxProd = p.max_producible;
+            const iconName = getProductIcon(p.name);
+            return `
+                <article class="mobile-data-card">
+                    <div class="mobile-data-card-top">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border border-white shadow-xs" style="background-color: ${safeColor(p.image_color)}; color: #9e2d58;">
+                                <i data-lucide="${iconName}" class="w-5 h-5 stroke-[1.8]"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h3 class="mobile-data-card-title">${escapeHtml(p.name)}</h3>
+                                <p class="mobile-data-card-sub">ID #${p.id}</p>
+                            </div>
+                        </div>
+                        <div class="mobile-data-card-side">${productionAvailability(p)}</div>
+                    </div>
+                    <div class="mobile-data-grid">
+                        <div class="mobile-data-field">
+                            <span class="mobile-data-label">Stock terminado</span>
+                            <span class="mobile-data-value">${p.stock} uni</span>
+                        </div>
+                        <div class="mobile-data-field">
+                            <span class="mobile-data-label">Receta</span>
+                            <span class="mobile-data-value">${hasRecipe ? `${p.recipe_items} ingredientes` : 'Sin receta'}</span>
+                        </div>
+                    </div>
+                    <div class="mobile-data-actions">
+                        <button onclick="openRecipeModal(${p.id})" class="mobile-data-action">
+                            <i data-lucide="book-open" class="w-4 h-4"></i><span>Receta</span>
+                        </button>
+                        <button onclick="openProduceModal(${p.id})" ${!hasRecipe || maxProd <= 0 ? 'disabled' : ''} class="mobile-data-action btn-sweet-accent disabled:opacity-30 disabled:pointer-events-none">
+                            <i data-lucide="chef-hat" class="w-4 h-4"></i><span>Elaborar</span>
+                        </button>
+                    </div>
+                </article>`;
+        }
+
         function renderProductionTable(products) {
             const table = document.getElementById('production-table');
-            table.innerHTML = '';
+            const cards = document.getElementById('production-cards');
+            const pager = document.getElementById('production-pager');
+            const state = SweetPagination.paginate(products, prodPage, SweetPagination.pageSize(6, 12));
+            prodPage = state.page;
+
             if (products.length === 0) {
                 table.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-slate-400 font-medium">No se encontraron productos o recetas coincidentes.</td></tr>';
+                if (cards) cards.innerHTML = '<div class="mobile-data-empty">No se encontraron productos o recetas coincidentes.</div>';
+                SweetPagination.render(pager, { page: 1, pages: 1, total: 0, perPage: state.perPage, onChange: () => {} });
                 return;
             }
 
-            products.forEach(p => {
+            table.innerHTML = state.items.map(p => {
                 const hasRecipe = p.recipe_items > 0;
                 const maxProd = p.max_producible;
-                let availabilityBadge;
-                if (!hasRecipe) {
-                    availabilityBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">Sin receta</span>`;
-                } else if (maxProd <= 0) {
-                    availabilityBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">Falta material</span>`;
-                } else {
-                    availabilityBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">● ${maxProd} unid. posibles</span>`;
-                }
-
                 const iconName = getProductIcon(p.name);
-
-                table.innerHTML += `
+                return `
                     <tr class="hover:bg-pink-50/30 transition-colors group">
                         <td class="px-6 py-3.5">
                             <div class="flex items-center gap-3">
@@ -424,7 +531,7 @@
                         <td class="px-6 py-3.5 text-xs text-slate-500 font-medium">
                             ${hasRecipe ? `<span class="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-semibold">${p.recipe_items} ingredientes</span>` : '<span class="text-slate-400">—</span>'}
                         </td>
-                        <td class="px-6 py-3.5">${availabilityBadge}</td>
+                        <td class="px-6 py-3.5">${productionAvailability(p)}</td>
                         <td class="px-6 py-3.5 text-right flex items-center justify-end gap-2">
                             <button onclick="openRecipeModal(${p.id})" class="text-xs font-bold text-slate-600 hover:text-pink-600 border border-slate-200 hover:border-pink-300 rounded-xl px-3 py-1.5 transition-all bg-white shadow-xs">
                                 Receta
@@ -433,33 +540,189 @@
                                 Elaborar
                             </button>
                         </td>
-                    </tr>
-                `;
+                    </tr>`;
+            }).join('');
+
+            if (cards) cards.innerHTML = state.items.map(productionCardHtml).join('');
+
+            SweetPagination.render(pager, {
+                page: state.page,
+                pages: state.pages,
+                total: state.total,
+                perPage: state.perPage,
+                label: 'productos',
+                onChange: (next) => {
+                    prodPage = next;
+                    renderProductionTable(products);
+                    document.getElementById('production-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                },
             });
             lucide.createIcons();
         }
 
         // ---------- Receta ----------
+        // Each ingredient row carries its material id in data-material-id; the picker
+        // never adds the same material twice, so rows map 1:1 to recipe lines.
 
-        function materialOptionsHtml(selectedId) {
-            return materialsCache.map(m =>
-                `<option value="${escapeHtml(m.id)}" ${String(m.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml(m.name)} (${escapeHtml(m.unit)})</option>`
-            ).join('');
+        let recipeOriginalCount = 0;
+
+        function formatQty(value) {
+            return Number(value || 0).toLocaleString('es-VE', { maximumFractionDigits: 3 });
         }
 
-        function addRecipeRow(materialId = '', quantity = '') {
+        function findMaterial(id) {
+            return materialsCache.find(m => String(m.id) === String(id));
+        }
+
+        function recipeRowIds() {
+            return [...document.querySelectorAll('#recipe-rows .recipe-row')].map(r => r.dataset.materialId);
+        }
+
+        function renderRecipePicker() {
+            const picker = document.getElementById('recipe-picker');
+            if (!picker) return;
+            if (materialsCache.length === 0) {
+                picker.innerHTML = '<p class="w-full rounded-xl border border-dashed border-amber-300 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800">No hay insumos registrados. Créalos primero en el módulo Insumos.</p>';
+                return;
+            }
+            const term = (document.getElementById('recipe-search')?.value || '').trim().toLowerCase();
+            const used = new Set(recipeRowIds());
+            const matches = materialsCache.filter(m => !used.has(String(m.id)) && (!term || String(m.name).toLowerCase().includes(term)));
+            if (matches.length === 0) {
+                picker.innerHTML = `<p class="text-xs text-slate-500 px-1">${term ? 'Ningún insumo coincide con la búsqueda.' : 'Todos los insumos ya están en la receta.'}</p>`;
+                return;
+            }
+            picker.innerHTML = matches.map(m => {
+                const empty = (parseFloat(m.stock) || 0) <= 0;
+                return `<button type="button" data-material-id="${escapeHtml(m.id)}" class="recipe-pick inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors ${empty ? 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300' : 'border-pink-200 bg-pink-50/60 text-pink-800 hover:bg-pink-100'}">
+                    <i data-lucide="plus" class="w-3 h-3 stroke-[2.5]"></i>${escapeHtml(m.name)}
+                    <span class="font-medium ${empty ? 'text-rose-600' : 'text-slate-500'}">${empty ? 'sin stock' : formatQty(m.stock) + ' ' + escapeHtml(m.unit)}</span>
+                </button>`;
+            }).join('');
+            picker.querySelectorAll('.recipe-pick').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const row = addRecipeRow(btn.dataset.materialId, '');
+                    row?.querySelector('.recipe-quantity')?.focus();
+                });
+            });
+            lucide.createIcons({ root: picker });
+        }
+
+        function renderRecipeEmptyState() {
             const container = document.getElementById('recipe-rows');
+            if (!container || container.querySelector('.recipe-row')) {
+                document.getElementById('recipe-empty')?.remove();
+                return;
+            }
+            if (document.getElementById('recipe-empty')) return;
+            container.innerHTML = '<div id="recipe-empty" class="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center"><p class="text-sm font-bold text-slate-700">Esta receta no tiene ingredientes</p><p class="text-xs text-slate-500 mt-1">Busca un insumo arriba y tócalo para agregarlo.</p></div>';
+        }
+
+        function updateRecipeSummary() {
+            const rows = [...document.querySelectorAll('#recipe-rows .recipe-row')];
+            const lines = [];
+            let cost = 0;
+            rows.forEach(row => {
+                const material = findMaterial(row.dataset.materialId);
+                const quantity = parseFloat(row.querySelector('.recipe-quantity').value);
+                if (!material || !quantity || quantity <= 0) {
+                    lines.push({ row, material, possible: null });
+                    return;
+                }
+                const lineCost = (parseFloat(material.cost_per_unit) || 0) * quantity;
+                cost += lineCost;
+                lines.push({ row, material, quantity, lineCost, possible: Math.floor((parseFloat(material.stock) || 0) / quantity) });
+            });
+
+            const valid = lines.filter(l => l.possible !== null);
+            const max = valid.length ? Math.min(...valid.map(l => l.possible)) : null;
+            const best = valid.length ? Math.max(...valid.map(l => l.possible), 1) : 1;
+            const limiting = valid.length ? valid.reduce((a, b) => (b.possible < a.possible ? b : a)) : null;
+
+            lines.forEach(({ row, material, quantity, lineCost, possible }) => {
+                const bar = row.querySelector('.recipe-bar');
+                const status = row.querySelector('.recipe-row-status');
+                const costEl = row.querySelector('.recipe-row-cost');
+                if (possible === null) {
+                    bar.style.width = '0%';
+                    status.textContent = 'Indica la cantidad por unidad';
+                    status.className = 'recipe-row-status text-[11px] font-semibold text-amber-700';
+                    costEl.textContent = '';
+                    row.classList.remove('border-rose-300', 'bg-rose-50/40');
+                    return;
+                }
+                const isLimit = limiting && limiting.row === row && valid.length > 1;
+                const tone = possible <= 0 ? 'rose' : isLimit ? 'amber' : 'emerald';
+                bar.style.width = possible <= 0 ? '100%' : Math.max(6, Math.round((possible / best) * 100)) + '%';
+                bar.className = `recipe-bar h-full rounded-full transition-all duration-300 ${tone === 'rose' ? 'bg-rose-400' : tone === 'amber' ? 'bg-amber-400' : 'bg-emerald-400'}`;
+                status.textContent = possible <= 0
+                    ? `Falta: hay ${formatQty(material.stock)} ${material.unit}, necesitas ${formatQty(quantity)}`
+                    : `Alcanza para ${possible} ${possible === 1 ? 'unidad' : 'unidades'}${isLimit ? ' · limita la producción' : ''}`;
+                status.className = `recipe-row-status text-[11px] font-semibold ${tone === 'rose' ? 'text-rose-700' : tone === 'amber' ? 'text-amber-700' : 'text-emerald-700'}`;
+                costEl.textContent = lineCost > 0 ? '$' + lineCost.toFixed(2) : '';
+                row.classList.toggle('border-rose-300', possible <= 0);
+                row.classList.toggle('bg-rose-50/40', possible <= 0);
+            });
+
+            document.getElementById('recipe-count').textContent = `(${rows.length})`;
+            document.getElementById('recipe-cost').textContent = '$' + cost.toFixed(2);
+            const maxEl = document.getElementById('recipe-max');
+            maxEl.textContent = max === null ? '—' : `${Math.max(0, max)} ${max === 1 ? 'unidad' : 'unid.'}`;
+            maxEl.className = 'block text-xl font-black font-heading leading-tight ' + (max === null ? 'text-slate-400' : max <= 0 ? 'text-rose-600' : 'text-emerald-700');
+            const limitEl = document.getElementById('recipe-limit');
+            limitEl.textContent = limiting ? limiting.material.name : '—';
+            limitEl.title = limiting ? limiting.material.name : '';
+            limitEl.className = 'block text-sm font-extrabold leading-tight mt-1 truncate ' + (!limiting ? 'text-slate-400' : limiting.possible <= 0 ? 'text-rose-600' : 'text-slate-800');
+        }
+
+        function addRecipeRow(materialId, quantity = '') {
+            const material = findMaterial(materialId);
+            const container = document.getElementById('recipe-rows');
+            if (!material || !container) return null;
+            const existing = container.querySelector(`.recipe-row[data-material-id="${CSS.escape(String(material.id))}"]`);
+            if (existing) return existing;
+            document.getElementById('recipe-empty')?.remove();
+
             const row = document.createElement('div');
-            row.className = 'flex items-center gap-2';
+            row.className = 'recipe-row rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition-colors';
+            row.dataset.materialId = String(material.id);
             row.innerHTML = `
-                <select class="recipe-material flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
-                    ${materialOptionsHtml(materialId)}
-                </select>
-                <input type="number" class="recipe-quantity w-28 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 font-bold" placeholder="Cant." min="0.01" step="0.01" value="${escapeHtml(quantity)}">
-                <button type="button" onclick="this.parentElement.remove()" class="text-slate-400 hover:text-rose-500 p-2 rounded-xl hover:bg-rose-50"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                <div class="flex items-center gap-3">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-baseline gap-2">
+                            <span class="font-bold text-sm text-slate-900 truncate">${escapeHtml(material.name)}</span>
+                            <span class="recipe-row-cost text-[11px] font-semibold text-slate-500 shrink-0"></span>
+                        </div>
+                        <span class="block text-[11px] text-slate-500">Disponible: ${formatQty(material.stock)} ${escapeHtml(material.unit)}</span>
+                    </div>
+                    <label class="relative shrink-0">
+                        <span class="sr-only">Cantidad de ${escapeHtml(material.name)} por unidad</span>
+                        <input type="number" class="recipe-quantity w-28 pl-3 pr-10 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm font-bold text-right focus:outline-none focus:ring-2 focus:ring-pink-200 focus:border-pink-300" placeholder="0" min="0.001" step="any" inputmode="decimal" value="${escapeHtml(quantity)}">
+                        <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-500 pointer-events-none">${escapeHtml(material.unit)}</span>
+                    </label>
+                    <button type="button" class="recipe-remove text-slate-400 hover:text-rose-600 p-2 rounded-lg hover:bg-rose-50 shrink-0" title="Quitar ${escapeHtml(material.name)}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                </div>
+                <div class="mt-2 flex items-center gap-2.5">
+                    <div class="h-1.5 flex-1 rounded-full bg-slate-100 overflow-hidden"><div class="recipe-bar h-full rounded-full bg-slate-300" style="width:0%"></div></div>
+                </div>
+                <span class="recipe-row-status block mt-1 text-[11px] font-semibold"></span>
             `;
             container.appendChild(row);
             lucide.createIcons({ root: row });
+            row.querySelector('.recipe-remove').addEventListener('click', () => {
+                row.remove();
+                renderRecipeEmptyState();
+                renderRecipePicker();
+                updateRecipeSummary();
+            });
+            row.querySelector('.recipe-quantity').addEventListener('input', updateRecipeSummary);
+            renderRecipePicker();
+            updateRecipeSummary();
+            return row;
+        }
+
+        function closeRecipeModal() {
+            document.getElementById('recipe-modal').classList.add('hidden');
         }
 
         async function openRecipeModal(productId) {
@@ -468,36 +731,57 @@
             document.getElementById('recipe-product-name').innerText = product ? product.name : '';
             document.getElementById('recipe-rows').innerHTML = '';
             document.getElementById('recipe-error').classList.add('hidden');
+            document.getElementById('recipe-search').value = '';
+            recipeOriginalCount = 0;
 
-            if (materialsCache.length === 0) {
-                document.getElementById('recipe-rows').innerHTML = '<p class="text-xs text-slate-400 text-center py-3">Registra insumos en el módulo "Materiales" antes de crear una receta.</p>';
-            } else {
+            if (materialsCache.length > 0) {
                 const res = await fetch(`api/production.php?product_id=${productId}`);
                 const recipe = res.ok ? await res.json() : [];
-                if (recipe.length === 0) {
-                    addRecipeRow();
-                } else {
-                    recipe.forEach(item => addRecipeRow(item.material_id, item.quantity_required));
-                }
+                recipeOriginalCount = Array.isArray(recipe) ? recipe.length : 0;
+                (Array.isArray(recipe) ? recipe : []).forEach(item => addRecipeRow(item.material_id, item.quantity_required));
             }
 
+            renderRecipeEmptyState();
+            renderRecipePicker();
+            updateRecipeSummary();
             document.getElementById('recipe-modal').classList.remove('hidden');
+            lucide.createIcons({ root: document.getElementById('recipe-modal') });
         }
+
+        document.getElementById('recipe-search').addEventListener('input', renderRecipePicker);
+        document.getElementById('recipe-search').addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            document.querySelector('#recipe-picker .recipe-pick')?.click();
+        });
 
         document.getElementById('recipe-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = e.target.querySelector('button[type="submit"]');
             const errDiv = document.getElementById('recipe-error');
+            errDiv.classList.add('hidden');
+
+            const rows = [...document.querySelectorAll('#recipe-rows .recipe-row')];
+            const incomplete = rows.filter(row => !(parseFloat(row.querySelector('.recipe-quantity').value) > 0));
+            if (incomplete.length > 0) {
+                const names = incomplete.map(row => findMaterial(row.dataset.materialId)?.name).filter(Boolean).join(', ');
+                errDiv.innerText = `Indica la cantidad por unidad de: ${names}. O quita esos insumos de la receta.`;
+                errDiv.classList.remove('hidden');
+                incomplete[0].querySelector('.recipe-quantity').focus();
+                return;
+            }
+            const items = rows.map(row => ({
+                material_id: parseInt(row.dataset.materialId),
+                quantity_required: parseFloat(row.querySelector('.recipe-quantity').value)
+            }));
+            if (items.length === 0 && recipeOriginalCount > 0
+                && !confirm('La receta quedará sin ingredientes y el producto dejará de poder elaborarse. ¿Guardar de todas formas?')) {
+                return;
+            }
+
             const originalHTML = btn.innerHTML;
             btn.innerHTML = '<div class="loader inline-block border-2 mr-2"></div> Guardando...';
             btn.disabled = true;
-            errDiv.classList.add('hidden');
-
-            const items = [...document.querySelectorAll('#recipe-rows > div')].map(row => ({
-                material_id: parseInt(row.querySelector('.recipe-material').value),
-                quantity_required: parseFloat(row.querySelector('.recipe-quantity').value)
-            })).filter(i => i.material_id && i.quantity_required > 0);
-
             try {
                 const res = await fetch('api/production.php', {
                     method: 'PUT',
@@ -509,7 +793,7 @@
                 });
                 const data = await res.json().catch(() => ({}));
                 if (res.ok) {
-                    document.getElementById('recipe-modal').classList.add('hidden');
+                    closeRecipeModal();
                     await loadProduction();
                 } else {
                     errDiv.innerText = data.error || 'No se pudo guardar la receta.';
@@ -523,6 +807,7 @@
                 btn.disabled = false;
             }
         });
+
 
         // ---------- Elaborar ----------
 
