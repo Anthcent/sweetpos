@@ -19,7 +19,7 @@ COPY container/entrypoint.sh /usr/local/bin/sweetpos-entrypoint
 COPY container/bootstrap-users.php /usr/local/lib/sweetpos/bootstrap-users.php
 
 WORKDIR /var/www/html
-COPY _product_modal.php _sidebar.php auth.php historial.php index.php inventario.php login.php logout.php materiales.php mesas.php movimientos.php panel.php produccion.php reportes.php setup_guard.php usuarios.php ./
+COPY _product_modal.php _restock_modal.php _sidebar.php favicon.ico auth.php historial.php index.php inventario.php login.php logout.php materiales.php mesas.php movimientos.php panel.php produccion.php reportes.php setup_guard.php usuarios.php ./
 COPY api/ ./api/
 COPY assets/ ./assets/
 COPY config/ ./config/
