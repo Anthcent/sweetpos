@@ -94,7 +94,7 @@ function computeInsights(PDO $pdo, int $targetDays = 3): array {
     }
 
     // 2. Products: sales aggregates + producible units, one query.
-    // ROUND(..., 6) before the integer cast avoids 0.3/0.1 -> 2.9999 -> 2.
+    // ROUND(..., 6) avoids 0.3/0.1 -> 2.9999 -> 2; the floor is applied in PHP below.
     $nonNegativeStock = sweetposDatabaseDriver($pdo) === 'pgsql'
         ? 'GREATEST(m.stock, 0)'
         : 'MAX(m.stock, 0)';
@@ -110,7 +110,7 @@ function computeInsights(PDO $pdo, int $targetDays = 3): array {
          ), recipe AS (
             SELECT pm.product_id,
                    COUNT(*) AS recipe_items,
-                   MIN(CAST(ROUND(CAST($nonNegativeStock AS NUMERIC) / CAST(pm.quantity_required AS NUMERIC), 6) AS INTEGER)) AS can_make
+                   MIN(ROUND(CAST($nonNegativeStock AS NUMERIC) / CAST(pm.quantity_required AS NUMERIC), 6)) AS can_make
             FROM product_materials pm
             JOIN materials m ON m.id = pm.material_id
             WHERE pm.quantity_required > 0
@@ -146,7 +146,9 @@ function computeInsights(PDO $pdo, int $targetDays = 3): array {
         $stock   = (int)$p['stock'];
         $sold30  = (int)$p['sold_30d'];
         $avg     = round($sold30 / $windowDays, 4);
-        $canMake = $p['can_make'] === null ? null : max(0, (int)$p['can_make']);
+        // can_make arrives as the rounded minimum ratio; floor it here (portable:
+        // PostgreSQL's integer cast rounds and old SQLite has no FLOOR()).
+        $canMake = $p['can_make'] === null ? null : max(0, (int)floor(round((float)$p['can_make'], 6)));
         $coverage = $avg > 0 ? round($stock / $avg, 1) : null;
         $need = max(0, (int)ceil(round($avg * $targetDays, 6)) - $stock);
         $suggested = $canMake === null ? $need : min($need, $canMake);

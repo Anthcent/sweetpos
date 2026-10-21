@@ -22,32 +22,20 @@ switch ($method) {
             echo json_encode($stmt->fetchAll());
         } else {
             // Listado de productos activos con lo que se puede elaborar ahora (can_make)
-            // y el insumo que lo limita. ROUND(..., 6) evita 0.3/0.1 = 2.9999 -> 2.
-            $nonNegativeStock = sweetposDatabaseDriver($pdo) === 'pgsql'
-                ? 'GREATEST(m.stock, 0)'
-                : 'MAX(m.stock, 0)';
-            $stmt = $pdo->query(
-                "WITH ratios AS (
-                    SELECT pm.product_id, m.name AS material_name,
-                           CAST(ROUND(CAST($nonNegativeStock AS NUMERIC) / CAST(pm.quantity_required AS NUMERIC), 6) AS INTEGER) AS units
-                    FROM product_materials pm JOIN materials m ON m.id = pm.material_id
-                    WHERE pm.quantity_required > 0
-                 ), ranked AS (
-                    SELECT product_id, material_name, units,
-                           COUNT(*) OVER (PARTITION BY product_id) AS recipe_items,
-                           ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY units ASC, material_name ASC) AS rn
-                    FROM ratios
-                 )
-                 SELECT p.id, p.name, p.category, p.stock, p.min_stock, p.image_color,
-                        COALESCE(r.recipe_items, 0) AS recipe_items,
-                        r.units AS max_producible,
-                        r.material_name AS limiting_material
-                 FROM products p
-                 LEFT JOIN ranked r ON r.product_id = p.id AND r.rn = 1
-                 WHERE p.is_active = 1
-                 ORDER BY p.name ASC"
-            );
-            echo json_encode($stmt->fetchAll());
+            // y el insumo que lo limita (calculo compartido en inventory.php).
+            $capacity = productionCapacityByProduct($pdo);
+            $rows = $pdo->query(
+                "SELECT p.id, p.name, p.category, p.stock, p.min_stock, p.image_color
+                 FROM products p WHERE p.is_active = 1 ORDER BY p.name ASC"
+            )->fetchAll();
+            foreach ($rows as &$row) {
+                $cap = $capacity[(int)$row['id']] ?? null;
+                $row['recipe_items'] = $cap ? $cap['recipe_items'] : 0;
+                $row['max_producible'] = $cap ? $cap['can_make'] : null;
+                $row['limiting_material'] = $cap ? $cap['limiting_material'] : null;
+            }
+            unset($row);
+            echo json_encode($rows);
         }
         break;
 

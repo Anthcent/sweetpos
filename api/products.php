@@ -7,7 +7,8 @@ require 'inventory.php';
 
 // Reglas de stock de productos:
 // - Con receta: el stock solo sube por Elaboracion (api/production.php). La unica
-//   excepcion es un 'adjustment' hecho por admin con una nota obligatoria.
+//   excepcion es un 'adjustment' con nota obligatoria: positivo solo admin,
+//   negativo (merma, vencido, etc.) admin o gerente.
 // - Sin receta (reventa, ej. bebidas embotelladas): se permiten entradas 'purchase'
 //   y 'adjustment' (admin/gerente). Todo queda registrado en stock_movements.
 
@@ -29,8 +30,13 @@ function applyProductStockEntry(PDO $pdo, int $productId, string $reason, int $d
         if ($reason === StockReason::PURCHASE) {
             throw new StockException("Este producto tiene receta: su stock solo aumenta mediante Elaboración.", 409);
         }
-        if ($role !== 'admin') {
-            throw new StockException("Solo un administrador puede ajustar el stock de un producto con receta.", 403);
+        // Decreases (merma, vencido, ...) may be done by admin and gerente; increases
+        // outside of production stay admin-only. Both need a justification note.
+        if ($delta > 0 && $role !== 'admin') {
+            throw new StockException("Solo un administrador puede sumar stock a un producto con receta fuera de Elaboración.", 403);
+        }
+        if ($delta < 0 && !in_array($role, ['admin', 'gerente'], true)) {
+            throw new StockException("No tienes permiso para disminuir el stock de este producto.", 403);
         }
         if ($note === null || $note === '') {
             throw new StockException("El ajuste de un producto con receta requiere una nota que lo justifique.", 400);
@@ -146,7 +152,17 @@ switch ($method) {
             "SELECT p.*, (SELECT COUNT(*) FROM product_materials pm WHERE pm.product_id = p.id) AS recipe_items
              FROM products p" . ($includeInactive ? "" : " WHERE p.is_active = 1") . " ORDER BY p.id ASC"
         );
-        echo json_encode($stmt->fetchAll());
+        $rows = $stmt->fetchAll();
+        // can_make / limiting_material: units makeable now with current materials
+        // (NULL for products without recipe). Same calculation as api/production.php.
+        $capacity = productionCapacityByProduct($pdo);
+        foreach ($rows as &$row) {
+            $cap = $capacity[(int)$row['id']] ?? null;
+            $row['can_make'] = $cap ? $cap['can_make'] : null;
+            $row['limiting_material'] = $cap ? $cap['limiting_material'] : null;
+        }
+        unset($row);
+        echo json_encode($rows);
         break;
 
     case 'POST':

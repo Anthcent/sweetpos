@@ -139,6 +139,47 @@ function normalizeRecipeItems(array $items, bool $strict = true): array {
     return $out;
 }
 
+// Floor of a ratio already rounded to 6 decimals in SQL. The floor is done in
+// PHP on purpose: SQLite < 3.35 has no FLOOR() and PostgreSQL's
+// CAST(numeric AS INTEGER) rounds (2.5 -> 3) instead of truncating.
+function floorRoundedRatio($ratio): int {
+    return max(0, (int)floor(round((float)$ratio, 6)));
+}
+
+// Single source of truth for "how many units can be made right now".
+// Per recipe line: floor(max(material.stock, 0) / quantity_required); the product
+// capacity is the minimum over its recipe, and the material with the lowest
+// value (ties by name) is the limiting one. ROUND(..., 6) absorbs float error
+// (0.3 / 0.1 = 2.9999 -> 3).
+// Returns [product_id => ['recipe_items' => int, 'can_make' => int, 'limiting_material' => string]].
+function productionCapacityByProduct(PDO $pdo): array {
+    $nonNegativeStock = sweetposDatabaseDriver($pdo) === 'pgsql'
+        ? 'GREATEST(m.stock, 0)'
+        : 'MAX(m.stock, 0)';
+    $rows = $pdo->query(
+        "SELECT pm.product_id, m.name AS material_name,
+                ROUND(CAST($nonNegativeStock AS NUMERIC) / CAST(pm.quantity_required AS NUMERIC), 6) AS ratio
+         FROM product_materials pm JOIN materials m ON m.id = pm.material_id
+         WHERE pm.quantity_required > 0"
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    $out = [];
+    foreach ($rows as $row) {
+        $productId = (int)$row['product_id'];
+        $units = floorRoundedRatio($row['ratio']);
+        $name = (string)$row['material_name'];
+        if (!isset($out[$productId])) {
+            $out[$productId] = ['recipe_items' => 0, 'can_make' => $units, 'limiting_material' => $name];
+        } elseif ($units < $out[$productId]['can_make']
+            || ($units === $out[$productId]['can_make'] && strcmp($name, $out[$productId]['limiting_material']) < 0)) {
+            $out[$productId]['can_make'] = $units;
+            $out[$productId]['limiting_material'] = $name;
+        }
+        $out[$productId]['recipe_items']++;
+    }
+    return $out;
+}
+
 // Replaces the recipe of a product. Must be called inside a transaction.
 function saveRecipe(PDO $pdo, int $productId, array $normalizedItems): void {
     if ($normalizedItems) {
