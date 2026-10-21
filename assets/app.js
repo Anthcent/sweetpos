@@ -367,7 +367,7 @@ function renderProducts(items) {
         const theme = getProductTheme(product);
 
         const card = document.createElement('div');
-        card.className = `product-card p-3.5 cursor-pointer flex flex-col justify-between group ${isOutOfStock ? 'opacity-40 grayscale cursor-not-allowed' : ''}`;
+        card.className = `product-card p-3.5 cursor-pointer flex flex-col justify-between group ${isOutOfStock ? 'opacity-70' : ''}`;
         
         card.innerHTML = `
             <div>
@@ -403,9 +403,9 @@ function renderProducts(items) {
                     <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Precio</span>
                     <div class="font-extrabold text-base text-pink-600 font-heading">$${product.price.toFixed(2)}</div>
                 </div>
-                <div class="text-[11px] font-bold text-slate-400 group-hover:text-pink-500 transition-colors flex items-center gap-0.5">
-                    <span>Añadir</span>
-                    <i data-lucide="plus" class="w-3 h-3"></i>
+                <div class="text-[11px] font-bold ${isOutOfStock ? 'text-emerald-600 group-hover:text-emerald-700' : 'text-slate-400 group-hover:text-pink-500'} transition-colors flex items-center gap-0.5">
+                    <span>${isOutOfStock ? 'Reponer' : 'Añadir'}</span>
+                    <i data-lucide="${isOutOfStock ? 'package-plus' : 'plus'}" class="w-3 h-3"></i>
                 </div>
             </div>
         `;
@@ -416,6 +416,14 @@ function renderProducts(items) {
                 // Micro-bounce
                 card.style.transform = 'scale(0.96)';
                 setTimeout(() => { card.style.transform = ''; }, 150);
+            });
+        } else {
+            card.addEventListener('click', () => {
+                if (typeof window.openRestockModal === 'function') {
+                    window.openRestockModal(product.id);
+                } else {
+                    showToast('Producto agotado. Pide reposición al encargado.', 'error');
+                }
             });
         }
         productsGrid.appendChild(card);
@@ -503,10 +511,14 @@ function updateQuantity(id, change) {
 // Control del Drawer de Carrito (Tablet y Móvil < 1024px)
 function openMobileCart() {
     document.body.classList.add('cart-drawer-open');
+    const floatingBtn = document.getElementById('mobile-cart-floating-btn');
+    if (floatingBtn) floatingBtn.setAttribute('aria-expanded', 'true');
 }
 
 function closeMobileCart() {
     document.body.classList.remove('cart-drawer-open');
+    const floatingBtn = document.getElementById('mobile-cart-floating-btn');
+    if (floatingBtn) floatingBtn.setAttribute('aria-expanded', 'false');
 }
 
 function toggleMobileCart() {
@@ -516,6 +528,12 @@ function toggleMobileCart() {
 window.openMobileCart = openMobileCart;
 window.closeMobileCart = closeMobileCart;
 window.toggleMobileCart = toggleMobileCart;
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && document.body.classList.contains('cart-drawer-open')) {
+        closeMobileCart();
+    }
+});
 
 function renderCart() {
     if(!cartItemsContainer) return;

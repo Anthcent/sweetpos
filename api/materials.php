@@ -14,6 +14,21 @@ function optionalNote(array $data): ?string {
     return isset($data['note']) && trim((string)$data['note']) !== '' ? mb_substr(trim((string)$data['note']), 0, 200) : null;
 }
 
+/** Optional purchase presentation: label plus how many base units it contains. */
+function materialPresentation(array $data, array $current = []): array {
+    $label = array_key_exists('presentation_label', $data)
+        ? trim((string)$data['presentation_label'])
+        : trim((string)($current['presentation_label'] ?? ''));
+    $qty = array_key_exists('presentation_qty', $data)
+        ? (float)$data['presentation_qty']
+        : (float)($current['presentation_qty'] ?? 0);
+    $qty = max(0, round($qty, 6));
+    if ($label === '' || $qty <= 0) {
+        return [null, 0];
+    }
+    return [mb_substr($label, 0, 80), $qty];
+}
+
 switch ($method) {
     case 'GET':
         // Todos los roles autenticados pueden ver el stock de materiales.
@@ -109,8 +124,9 @@ switch ($method) {
                 throw new StockException("Ya existe un insumo llamado \"$name\".", 409, ["existing_id" => (int)$existingId]);
             }
 
-            $stmt = $pdo->prepare("INSERT INTO materials (name, unit, stock, min_stock, cost_per_unit) VALUES (?, ?, 0, ?, ?)");
-            $stmt->execute([$name, mb_substr($unit, 0, 20), max(0, (float)($data['min_stock'] ?? 0)), $cost]);
+            [$presentationLabel, $presentationQty] = materialPresentation($data);
+            $stmt = $pdo->prepare("INSERT INTO materials (name, unit, stock, min_stock, cost_per_unit, presentation_label, presentation_qty) VALUES (?, ?, 0, ?, ?, ?, ?)");
+            $stmt->execute([$name, mb_substr($unit, 0, 20), max(0, (float)($data['min_stock'] ?? 0)), $cost, $presentationLabel, $presentationQty]);
             $materialId = sweetposLastInsertId($pdo, 'materials');
             if ($initialStock > 0) {
                 changeMaterialStock($pdo, $materialId, $initialStock, StockReason::PURCHASE, null, 'Stock inicial', $cost > 0 ? $cost : null);
@@ -144,12 +160,15 @@ switch ($method) {
             $current = $cur->fetch();
             if (!$current) throw new StockException("El insumo no existe.", 404);
 
-            $stmt = $pdo->prepare("UPDATE materials SET name=?, unit=?, min_stock=?, cost_per_unit=? WHERE id=?");
+            [$presentationLabel, $presentationQty] = materialPresentation($data, $current);
+            $stmt = $pdo->prepare("UPDATE materials SET name=?, unit=?, min_stock=?, cost_per_unit=?, presentation_label=?, presentation_qty=? WHERE id=?");
             $stmt->execute([
                 trim($data['name'] ?? $current['name']),
                 $data['unit'] ?? $current['unit'],
                 max(0, (float)($data['min_stock'] ?? $current['min_stock'])),
                 max(0, (float)($data['cost_per_unit'] ?? $current['cost_per_unit'])),
+                $presentationLabel,
+                $presentationQty,
                 $materialId
             ]);
 

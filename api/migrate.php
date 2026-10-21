@@ -231,6 +231,13 @@ function migrationList(): array {
             migrationExec($pdo, "UPDATE sales SET paid_at = created_at WHERE status = 'paid' AND paid_at IS NULL");
             migrationExec($pdo, "CREATE INDEX IF NOT EXISTS idx_sales_paid_at ON sales(status, paid_at)");
         },
+
+        // 13. Optional purchase presentation per material (e.g. "Saco 1 kg" = 1).
+        //     Used by the quick-restock modal to buy by packages instead of base units.
+        13 => function (PDO $pdo) {
+            migrationAddColumn($pdo, 'materials', 'presentation_label', 'TEXT DEFAULT NULL');
+            migrationAddColumn($pdo, 'materials', 'presentation_qty', 'REAL NOT NULL DEFAULT 0');
+        },
     ];
 }
 
