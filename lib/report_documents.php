@@ -14,10 +14,7 @@ function reportPdfCell($value, array $column): string {
 }
 
 function reportBuildPdfDocument(array $data): array {
-    $pdfTitle = [
-        'cierre_diario' => 'CIERRE DIARIO', 'cierre_mensual' => 'CIERRE MENSUAL',
-        'mas_vendidos' => 'MAS VENDIDOS', 'reponer' => 'REPOSICION',
-    ][$data['type']] ?? 'REPORTE';
+    $pdfTitle = (string)($data['pdf_title'] ?? 'REPORTE');
     $pdf = new SweetPdf($pdfTitle, $data['period_label'], 'L');
     $pdf->AddPage();
     $pdf->SetFont('Helvetica', '', 8.5);
@@ -58,10 +55,7 @@ function reportBuildPdfDocument(array $data): array {
         $pdf->endTable();
     }
 
-    $slug = [
-        'cierre_diario' => 'cierre-diario', 'cierre_mensual' => 'cierre-mensual',
-        'mas_vendidos' => 'mas-vendidos', 'reponer' => 'reponer',
-    ][$data['type']] ?? 'reporte';
+    $slug = preg_replace('/[^a-z0-9-]+/', '-', (string)($data['slug'] ?? 'reporte'));
     $period = preg_replace('/[^0-9A-Za-z-]+/', '_', (string)$data['period']);
     return ['filename' => "sweetpos-{$slug}-{$period}.pdf", 'content' => $pdf->Output('S')];
 }
@@ -74,7 +68,12 @@ function reportBuildWorkbookSheets(array $data): array {
         $rows = [array_map(fn($column) => $column['label'], $table['columns'])];
         foreach ($table['rows'] as $row) $rows[] = array_values($row);
         $name = sweetposXlsxLimitUtf8((string)$table['title'], 31);
-        $sheets[$name !== '' ? $name : 'Detalle ' . ($index + 1)] = $rows;
+        if ($name === '') $name = 'Detalle ' . ($index + 1);
+        // Two titles may share their first 31 characters; keep both sheets.
+        for ($suffix = 2; isset($sheets[$name]) || $name === 'Notas'; $suffix++) {
+            $name = sweetposXlsxLimitUtf8((string)$table['title'], 31 - strlen(" ($suffix)")) . " ($suffix)";
+        }
+        $sheets[$name] = $rows;
     }
     if ($data['notes']) {
         $rows = [['Notas'], ...array_map(fn($note) => [$note], $data['notes'])];

@@ -20,10 +20,7 @@ try {
         require_once __DIR__ . '/../lib/xlsx_export.php';
         require_once __DIR__ . '/../lib/report_documents.php';
         $period = preg_replace('/[^0-9A-Za-z-]+/', '_', (string)$data['period']);
-        $slug = [
-            'cierre_diario' => 'cierre-diario', 'cierre_mensual' => 'cierre-mensual',
-            'mas_vendidos' => 'mas-vendidos', 'reponer' => 'reponer',
-        ][$data['type']] ?? 'reporte';
+        $slug = preg_replace('/[^a-z0-9-]+/', '-', (string)($data['slug'] ?? 'reporte'));
         $filename = "sweetpos-{$slug}-{$period}.xlsx";
         $content = sweetposBuildXlsx(reportBuildWorkbookSheets($data));
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
