@@ -78,8 +78,11 @@
         </form>
 
         <div class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 z-10 relative">
-            <div class="bg-white rounded-3xl shadow-card border border-slate-200/90 overflow-hidden">
-                <div class="overflow-x-auto w-full">
+            <div id="movements-list" class="bg-white rounded-3xl shadow-card border border-slate-200/90 overflow-hidden">
+                <div id="movements-cards" class="mobile-data-list md:hidden">
+                    <div class="mobile-data-empty">Cargando movimientos...</div>
+                </div>
+                <div class="hidden md:block overflow-x-auto w-full">
                     <table class="w-full min-w-[760px] text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-200/80">
@@ -116,7 +119,11 @@
             adjustment: ['Ajuste', 'bg-amber-50 text-amber-800 border-amber-200'],
             void:       ['Anulación', 'bg-slate-100 text-slate-600 border-slate-200'],
         };
-        const PER_PAGE = 50;
+        const PER_PAGE_MOBILE = 10;
+        const PER_PAGE_DESKTOP = 25;
+        function movementsPerPage() {
+            return SweetPagination.pageSize(PER_PAGE_MOBILE, PER_PAGE_DESKTOP);
+        }
         let options = { products: [], materials: [] };
         let page = 1;
 
@@ -166,7 +173,7 @@
             const table = document.getElementById('movements-table');
             const params = currentFilters();
             params.set('page', page);
-            params.set('per_page', PER_PAGE);
+            params.set('per_page', movementsPerPage());
             // Keep filters in the URL so a view can be shared or reloaded.
             history.replaceState(null, '', location.pathname + '?' + params.toString());
             try {
@@ -175,12 +182,55 @@
                 if (!res.ok) throw new Error(data.error || 'Error');
                 renderMovements(data);
             } catch (e) {
-                table.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-rose-500 font-medium">${escapeHtml(e.message || 'Error al cargar movimientos.')}</td></tr>`;
+                const message = escapeHtml(e.message || 'Error al cargar movimientos.');
+                table.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-rose-500 font-medium">${message}</td></tr>`;
+                const cards = document.getElementById('movements-cards');
+                if (cards) cards.innerHTML = `<div class="mobile-data-empty text-rose-500">${message}</div>`;
             }
+        }
+
+        function movementCardHtml(m) {
+            const [label, cls] = REASON_LABELS[m.reason] || [m.reason, 'bg-slate-100 text-slate-600 border-slate-200'];
+            const qty = Number(m.qty_delta);
+            const ref = m.ref_id ? `#${Number(m.ref_id)}` : '';
+            const note = [ref, m.note || ''].filter(Boolean).join(' · ') || '—';
+            return `
+                <article class="mobile-data-card">
+                    <div class="mobile-data-card-top">
+                        <div class="min-w-0">
+                            <h3 class="mobile-data-card-title">${escapeHtml(m.item_name || `(eliminado #${Number(m.item_id)})`)}</h3>
+                            <p class="mobile-data-card-sub">${m.item_type === 'product' ? 'Producto' : 'Insumo'} · ${formatDate(m.created_at)}</p>
+                        </div>
+                        <div class="mobile-data-card-side">
+                            <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${cls}">${escapeHtml(label)}</span>
+                        </div>
+                    </div>
+                    <div class="mobile-data-grid">
+                        <div class="mobile-data-field">
+                            <span class="mobile-data-label">Cantidad</span>
+                            <span class="mobile-data-value ${qty < 0 ? 'text-rose-600' : 'text-emerald-600'}">
+                                ${qty > 0 ? '+' : ''}${qty.toLocaleString('es-VE', { maximumFractionDigits: 3 })} ${escapeHtml(m.unit || '')}
+                            </span>
+                        </div>
+                        <div class="mobile-data-field">
+                            <span class="mobile-data-label">Costo unitario</span>
+                            <span class="mobile-data-value">${m.unit_cost !== null ? '$' + Number(m.unit_cost).toFixed(2) : '—'}</span>
+                        </div>
+                        <div class="mobile-data-field">
+                            <span class="mobile-data-label">Usuario</span>
+                            <span class="mobile-data-value">${escapeHtml(m.username || '—')}</span>
+                        </div>
+                        <div class="mobile-data-field">
+                            <span class="mobile-data-label">Referencia</span>
+                            <span class="mobile-data-value">${escapeHtml(note)}</span>
+                        </div>
+                    </div>
+                </article>`;
         }
 
         function renderMovements(data) {
             const table = document.getElementById('movements-table');
+            const cards = document.getElementById('movements-cards');
             page = data.page;
             document.getElementById('page-info').textContent =
                 `${data.total} movimiento(s) · página ${data.page} de ${data.pages}`;
@@ -189,6 +239,7 @@
 
             if (!data.items.length) {
                 table.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-slate-400 font-medium">No hay movimientos con estos filtros.</td></tr>';
+                if (cards) cards.innerHTML = '<div class="mobile-data-empty">No hay movimientos con estos filtros.</div>';
                 return;
             }
             table.innerHTML = data.items.map(m => {
@@ -212,6 +263,9 @@
                         <td class="px-5 py-2.5 text-xs text-slate-500">${escapeHtml([ref, m.note || ''].filter(Boolean).join(' · ') || '—')}</td>
                     </tr>`;
             }).join('');
+
+            if (cards) cards.innerHTML = data.items.map(movementCardHtml).join('');
+            lucide.createIcons();
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -238,8 +292,22 @@
                 page = 1;
                 loadMovements();
             });
-            document.getElementById('prev-page').addEventListener('click', () => { if (page > 1) { page--; loadMovements(); } });
-            document.getElementById('next-page').addEventListener('click', () => { page++; loadMovements(); });
+            document.getElementById('prev-page').addEventListener('click', async () => {
+                if (page <= 1) return;
+                page--;
+                await loadMovements();
+                document.getElementById('movements-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+            document.getElementById('next-page').addEventListener('click', async () => {
+                page++;
+                await loadMovements();
+                document.getElementById('movements-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+
+            SweetPagination.onBreakpointChange(() => {
+                page = 1;
+                loadMovements();
+            });
 
             loadMovements();
         });

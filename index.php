@@ -36,7 +36,7 @@
         <div class="absolute bottom-0 left-10 w-[24rem] h-[24rem] bg-purple-200/20 rounded-full mix-blend-multiply filter blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
 
         <!-- Header Principal POS -->
-        <header class="py-2.5 sm:py-3 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between border-b border-slate-200/60 glass-panel z-10 shrink-0 gap-3">
+        <header class="pos-header py-2.5 sm:py-3 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between border-b border-slate-200/60 glass-panel z-10 shrink-0 gap-3">
             
             <!-- Fila superior: Logo/Título y Controles Móviles (En Desktop: Columna Izquierda) -->
             <div class="flex items-center justify-between gap-3 w-full sm:w-auto shrink-0">
@@ -65,7 +65,7 @@
             </div>
 
             <!-- Buscador Principal Prominente -->
-            <div class="w-full sm:flex-1 sm:max-w-md lg:max-w-lg xl:max-w-xl">
+            <div class="w-full min-w-0 sm:flex-1 sm:max-w-md lg:max-w-lg xl:max-w-xl">
                 <div class="search-bar-sweet w-full">
                     <div class="search-icon-badge">
                         <i data-lucide="search" class="w-4 h-4 stroke-[2.4]"></i>
@@ -91,7 +91,13 @@
             </div>
 
             <!-- Perfil Usuario Desktop -->
-            <div class="hidden lg:flex items-center gap-2 pl-3 border-l border-slate-200/80 shrink-0">
+            <div class="pos-header-profile hidden lg:flex items-center gap-2 pl-3 border-l border-slate-200/80 shrink-0">
+                <?php if (canAccess('materiales')): ?>
+                <button type="button" onclick="openRestockModal()" title="Reposición rápida" class="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 text-[11px] font-extrabold transition-colors">
+                    <i data-lucide="package-plus" class="w-4 h-4"></i>
+                    <span>Reponer</span>
+                </button>
+                <?php endif; ?>
                 <div class="w-9 h-9 rounded-full bg-pink-100 text-pink-700 font-extrabold text-xs flex items-center justify-center font-heading border border-pink-200 shadow-xs">
                     <?= strtoupper(substr(currentUser(), 0, 1)) ?>
                 </div>
@@ -105,7 +111,7 @@
         <!-- BARRA DEDICADA DE FILTROS DE BÚSQUEDA Y CATEGORÍAS (100% VISIBLE Y DESTACADA) -->
         <div class="px-4 sm:px-6 lg:px-8 pt-3.5 pb-1 shrink-0 z-10">
             <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar py-1 w-full">
+                <div id="pos-category-filters" class="flex items-center gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar py-1 w-full">
                     <span class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider hidden md:inline-flex items-center gap-1.5 mr-1 shrink-0 font-heading">
                         <i data-lucide="filter" class="w-3.5 h-3.5 text-pink-500"></i>
                         <span>Filtrar:</span>
@@ -156,26 +162,7 @@
 
         <!-- Grilla de Productos -->
         <div class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 z-10 relative">
-            <div id="products-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5 pb-24"></div>
-        </div>
-
-        <!-- Botón Flotante de Carrito para Móviles / Tablets (<1024px) -->
-        <div id="mobile-cart-floating-bar" class="lg:hidden fixed bottom-20 md:bottom-6 right-4 left-4 md:left-auto md:w-80 z-35 transition-all duration-300 transform translate-y-24 opacity-0 pointer-events-none">
-            <button type="button" onclick="openMobileCart()" class="btn-sweet-accent w-full py-3 px-4 rounded-2xl shadow-xl flex items-center justify-between text-white font-heading font-extrabold text-sm cart-pill-pulse">
-                <div class="flex items-center gap-2.5">
-                    <span class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-                        <i data-lucide="shopping-bag" class="w-4 h-4 stroke-[2.2]"></i>
-                    </span>
-                    <div class="text-left leading-tight">
-                        <span id="floating-cart-count" class="block text-xs font-black">0 postres</span>
-                        <span class="text-[10px] text-pink-100 font-normal">Toca para revisar orden</span>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span id="floating-cart-total" class="text-base font-black font-heading">$0.00</span>
-                    <i data-lucide="arrow-right" class="w-4 h-4 stroke-[2.2]"></i>
-                </div>
-            </button>
+            <div id="products-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5 pb-24"></div>
         </div>
 
         <!-- Barra Inferior de Mesas Activas (Flotante) -->
@@ -183,6 +170,25 @@
             <!-- JS Inyectará las mesas -->
         </div>
     </main>
+
+    <!-- Botón Flotante de Carrito para Móviles / Tablets (<1024px) -->
+    <div id="mobile-cart-floating-bar" class="lg:hidden fixed bottom-20 md:bottom-6 right-4 left-4 md:left-auto md:w-80 transition-all duration-300 transform translate-y-24 opacity-0 pointer-events-none">
+        <button type="button" id="mobile-cart-floating-btn" onclick="openMobileCart()" aria-controls="pos-cart-aside" aria-expanded="false" class="btn-sweet-accent w-full py-3 px-4 rounded-2xl shadow-xl flex items-center justify-between text-white font-heading font-extrabold text-sm">
+            <div class="flex items-center gap-2.5">
+                <span class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                    <i data-lucide="shopping-bag" class="w-4 h-4 stroke-[2.2]"></i>
+                </span>
+                <div class="text-left leading-tight">
+                    <span id="floating-cart-count" class="block text-xs font-black">0 postres</span>
+                    <span class="text-[10px] text-pink-100 font-normal">Toca para revisar la orden</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="floating-cart-total" class="text-base font-black font-heading">$0.00</span>
+                <i data-lucide="chevron-up" class="w-4 h-4 stroke-[2.2]"></i>
+            </div>
+        </button>
+    </div>
 
     <!-- Panel Lateral de Carrito / Comanda (Drawer en Tablet/Móvil) -->
     <aside id="pos-cart-aside" class="w-96 bg-white border-l border-slate-200/80 flex flex-col h-full shadow-2xl relative z-20 shrink-0">

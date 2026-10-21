@@ -1239,3 +1239,939 @@ body.cart-drawer-open #cart-backdrop {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* =========================================================
+   RESPONSIVE HARDENING — layout, navigation and touch targets
+   ========================================================= */
+
+html,
+body {
+  max-width: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+main {
+  min-width: 0;
+}
+
+/* Desktop sidebar: keep the footer actions visible on short laptops. */
+@media (min-width: 768px) {
+  .app-sidebar {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .sidebar-links {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .sidebar-actions {
+    flex-shrink: 0;
+  }
+}
+
+@media (min-width: 768px) and (max-height: 820px) {
+  .app-sidebar {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  .sidebar-brand-wrapper {
+    margin-bottom: 0.75rem !important;
+  }
+
+  .sidebar-brand {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+  }
+
+  .app-sidebar a,
+  .app-sidebar button {
+    aspect-ratio: auto !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 0.8rem !important;
+  }
+
+  .app-sidebar a svg,
+  .app-sidebar button svg {
+    width: 18px !important;
+    height: 18px !important;
+    margin-bottom: 1px !important;
+  }
+
+  .app-sidebar a span,
+  .app-sidebar button span {
+    font-size: 9px !important;
+  }
+
+  .sidebar-links {
+    gap: 4px !important;
+  }
+
+  .sidebar-actions {
+    gap: 4px !important;
+    margin-top: 0.5rem !important;
+  }
+}
+
+/* Headers: stack while the viewport cannot hold title, search and actions. */
+@media (max-width: 1023px) {
+  main > header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    flex-wrap: nowrap !important;
+  }
+
+  main > header > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  main > header > div {
+    width: 100% !important;
+  }
+
+  main > header .search-bar-sweet {
+    width: 100% !important;
+  }
+}
+
+/* The POS header also needs stacking while the desktop cart is visible. */
+@media (max-width: 1439px) {
+  .pos-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .pos-header > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .pos-header > div {
+    width: 100% !important;
+  }
+
+  .pos-header .search-bar-sweet {
+    width: 100% !important;
+  }
+
+  .pos-header-profile {
+    display: none !important;
+  }
+}
+
+/* Mobile navigation: 5 clean tabs + "Más" sheet, never a scrolling strip. */
+.mobile-more-btn {
+  display: none;
+}
+
+.mobile-nav-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease, visibility 200ms ease;
+}
+
+.mobile-nav-sheet.is-open {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mobile-nav-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(37, 29, 34, 0.45);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.mobile-nav-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: calc(100dvh - 0.75rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #ffffff;
+  border-radius: 1.5rem 1.5rem 0 0;
+  padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  box-shadow: 0 -18px 40px -12px rgba(37, 29, 34, 0.28);
+  transform: translateY(105%);
+  transition: transform 300ms var(--ease-out);
+}
+
+.mobile-nav-sheet.is-open .mobile-nav-panel {
+  transform: translateY(0);
+}
+
+.mobile-nav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0.25rem 0.75rem;
+}
+
+.mobile-nav-eyebrow {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
+.mobile-nav-head h2 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin-top: 0.1rem;
+}
+
+.mobile-nav-close {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.mobile-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.mobile-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 50px;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link.is-active {
+  background: var(--primary-blush);
+  border-color: #f7d0df;
+  color: var(--primary-strong);
+}
+
+.mobile-nav-link svg {
+  flex-shrink: 0;
+}
+
+.mobile-nav-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.mobile-nav-action {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 48px;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.9rem;
+  background: var(--surface-soft);
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.mobile-nav-logout {
+  color: #b91c1c;
+  background: #fff1f2;
+}
+
+body.mobile-nav-open {
+  overflow: hidden !important;
+}
+
+@media (max-width: 767px) {
+  .sidebar-links {
+    justify-content: space-around !important;
+    overflow: visible !important;
+    gap: 2px !important;
+  }
+
+  .sidebar-links > a,
+  .sidebar-links > button {
+    display: none !important;
+  }
+
+  .sidebar-links > .mobile-primary,
+  .sidebar-links > .mobile-current {
+    display: flex !important;
+  }
+
+  .sidebar-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    width: auto !important;
+    padding: 0 0 0 6px !important;
+    margin: 0 !important;
+    gap: 2px !important;
+    border-left: 1.5px solid var(--border) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .sidebar-actions > * {
+    display: none !important;
+  }
+
+  .sidebar-actions > .mobile-current,
+  .sidebar-actions > .mobile-primary,
+  .sidebar-actions > .mobile-more-btn {
+    display: flex !important;
+  }
+
+  .app-sidebar a,
+  .app-sidebar button {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 50px !important;
+    min-height: 50px !important;
+    padding: 3px 2px !important;
+  }
+
+  .app-sidebar a span,
+  .app-sidebar button span {
+    font-size: 9px !important;
+  }
+
+  .app-sidebar a svg,
+  .app-sidebar button svg {
+    width: 19px !important;
+    height: 19px !important;
+    margin-bottom: 1px !important;
+  }
+
+  .mobile-more-btn {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 0.85rem;
+    background: transparent;
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+
+  .mobile-more-btn:hover {
+    color: var(--primary-strong);
+    background: var(--primary-blush);
+  }
+
+  .filter-wrap-mobile {
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+    row-gap: 0.4rem !important;
+  }
+
+  .filter-wrap-md {
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+    row-gap: 0.4rem !important;
+  }
+
+  .filter-pill-sweet {
+    min-height: 40px !important;
+  }
+
+  #toast-container {
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+
+  #toast-container .toast {
+    width: 100%;
+  }
+
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  /* Keep the identifying column visible while a data table scrolls. */
+  .overflow-x-auto > table th:first-child,
+  .overflow-x-auto > table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #ffffff;
+    box-shadow: 1px 0 0 var(--border);
+  }
+
+  .overflow-x-auto > table thead th:first-child {
+    background: var(--surface-soft);
+  }
+
+  .overflow-x-auto > table tbody tr:hover td:first-child {
+    background: #fdf5f8;
+  }
+
+  /* Empty/loading rows stay readable instead of starting off-canvas. */
+  .overflow-x-auto > table td[colspan] {
+    text-align: left !important;
+    padding-left: 1.25rem !important;
+  }
+
+  [class*='fixed'][class*='inset-0'] {
+    overscroll-behavior: contain;
+  }
+}
+
+@media (max-width: 900px) {
+  .filter-wrap-md {
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+    row-gap: 0.4rem !important;
+  }
+}
+
+/* Panel product table: keep the product name visible while scrolling sideways. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .panel-products-table th:first-child,
+  .panel-products-table td:first-child {
+    display: none;
+  }
+
+  .panel-products-table th:nth-child(2),
+  .panel-products-table td:nth-child(2) {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #ffffff;
+    box-shadow: 1px 0 0 var(--border);
+  }
+
+  .panel-products-table thead th:nth-child(2) {
+    background: var(--surface-soft);
+  }
+}
+
+/* Small phones: show all POS categories instead of hiding them in a scroller. */
+@media (max-width: 479px) {
+  #pos-category-filters {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem !important;
+    overflow: visible !important;
+  }
+
+  #pos-category-filters .category-filter-card {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  #pos-category-filters .cat-info {
+    min-width: 0;
+  }
+
+  #pos-category-filters .cat-label {
+    font-size: 0.8rem !important;
+  }
+}
+
+/* Date fields need room for the native picker on narrow phones. */
+@media (max-width: 767px) {
+  input[type="date"],
+  input[type="month"],
+  input[type="datetime-local"] {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 479px) {
+  #report-filters {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Ultra-narrow phones: keep the four KPI cards readable in two columns. */
+@media (max-width: 380px) {
+  #kpis {
+    gap: 0.5rem !important;
+  }
+
+  #kpis > div {
+    padding: 0.7rem !important;
+  }
+
+  #kpis span.text-\[10px\] {
+    font-size: 9px !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  #kpis span.text-\[11px\] {
+    font-size: 10px !important;
+  }
+}
+
+/* While the desktop cart is visible, let POS categories wrap instead of clip. */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  #pos-category-filters {
+    flex-wrap: wrap !important;
+    overflow: visible !important;
+    row-gap: 0.5rem !important;
+  }
+}
+
+/* Horizontal filter rows fade at the edge so the clipped pill looks intentional. */
+@media (max-width: 767px) {
+  .filter-scroll-fade {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+  }
+}
+
+/* Wider desktop: five POS columns once there is room for them. */
+@media (min-width: 1440px) {
+  #products-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* Landscape phones / short tablets: preserve vertical room for content. */
+@media (max-width: 1023px) and (max-height: 500px) {
+  main > header {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+    gap: 0.35rem !important;
+  }
+
+  main > header h1 {
+    font-size: 1.05rem !important;
+  }
+
+  main > header p {
+    display: none !important;
+  }
+
+  .pos-header {
+    gap: 0.35rem !important;
+  }
+}
+
+/* Respect the iPhone home-indicator area without covering the tab bar. */
+@media (max-width: 767px) {
+  .app-sidebar {
+    height: calc(64px + env(safe-area-inset-bottom)) !important;
+    min-height: calc(64px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: max(6px, env(safe-area-inset-bottom)) !important;
+  }
+
+  body > main {
+    height: calc(100dvh - 64px - env(safe-area-inset-bottom)) !important;
+  }
+
+  #active-tables-bar {
+    bottom: calc(64px + env(safe-area-inset-bottom)) !important;
+  }
+
+  #mobile-cart-floating-bar {
+    bottom: calc(64px + env(safe-area-inset-bottom) + 16px) !important;
+  }
+}
+
+/* Comfortable touch targets on phones. */
+@media (max-width: 767px) {
+  .search-bar-sweet .search-clear-btn {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  .search-bar-sweet input {
+    height: 34px !important;
+    min-height: 34px !important;
+  }
+
+  .overflow-x-auto table button,
+  main > header button,
+  #prev-page,
+  #next-page,
+  #f-clear {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  main .btn-sweet-accent {
+    min-height: 42px;
+  }
+
+  #target-days {
+    min-height: 40px;
+  }
+}
+
+/* The clear button must obey its hidden state (the component uses display:flex). */
+.search-bar-sweet .search-clear-btn.hidden {
+  display: none !important;
+}
+
+/* Mobile data cards: used instead of wide tables on phones. */
+.mobile-data-list {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .mobile-data-list {
+    display: none !important;
+  }
+}
+
+.mobile-data-card {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: #ffffff;
+}
+
+.mobile-data-card:last-child {
+  border-bottom: 0;
+}
+
+.mobile-data-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.mobile-data-card-title {
+  font-family: 'Outfit', 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--text-main);
+  overflow-wrap: anywhere;
+}
+
+.mobile-data-card-sub {
+  margin-top: 0.15rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.mobile-data-card-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.mobile-data-card-price {
+  font-family: 'Outfit', 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--primary-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-data-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.65rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: var(--surface-soft);
+}
+
+.mobile-data-field {
+  min-width: 0;
+}
+
+.mobile-data-field-wide {
+  grid-column: 1 / -1;
+}
+
+.mobile-data-label {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
+.mobile-data-value {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-main);
+  overflow-wrap: anywhere;
+}
+
+.mobile-data-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--border);
+}
+
+.mobile-data-action {
+  flex: 1 1 0;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.mobile-data-action:hover {
+  color: var(--primary-strong);
+  border-color: #f7d0df;
+  background: var(--primary-soft);
+}
+
+.mobile-data-action-danger:hover {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.mobile-data-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+/* Shared pagination footer. */
+.responsive-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border);
+  background: rgba(251, 246, 249, 0.7);
+}
+
+.responsive-pager.hidden {
+  display: none !important;
+}
+
+.responsive-pager-info {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.responsive-pager-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.responsive-pager button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 38px;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.responsive-pager button:hover:not(:disabled) {
+  color: var(--primary-strong);
+  border-color: #f7d0df;
+  background: var(--primary-soft);
+}
+
+.responsive-pager button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.responsive-pager-current {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .responsive-pager {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .responsive-pager-controls {
+    justify-content: space-between;
+  }
+
+  .responsive-pager button {
+    min-height: 42px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* POS: floating cart bar above the mobile tab bar and bottom-sheet cart. */
+#mobile-cart-floating-bar {
+  z-index: 49 !important;
+}
+
+/* El total usa font-heading (color oscuro global); dentro de la barra debe ser blanco. */
+#mobile-cart-floating-bar #floating-cart-total {
+  color: #ffffff !important;
+}
+
+body.cart-drawer-open #mobile-cart-floating-bar {
+  opacity: 0 !important;
+  transform: translateY(1rem) !important;
+  pointer-events: none !important;
+}
+
+@media (max-width: 767px) {
+  #mobile-cart-floating-bar {
+    position: fixed !important;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    bottom: calc(64px + env(safe-area-inset-bottom) + 10px) !important;
+    z-index: 49 !important;
+  }
+
+  body.cart-drawer-open #mobile-cart-floating-bar {
+    opacity: 0 !important;
+    transform: translateY(1rem) !important;
+    pointer-events: none !important;
+  }
+
+  /* El carrito móvil sube como hoja inferior, no como panel lateral. */
+  #pos-cart-aside {
+    position: fixed !important;
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 85dvh !important;
+    z-index: 60 !important;
+    border-radius: 1.5rem 1.5rem 0 0 !important;
+    border-left: 0 !important;
+    border-top: 1px solid var(--border) !important;
+    box-shadow: 0 -18px 40px -12px rgba(37, 29, 34, 0.28) !important;
+    transform: translateY(100%) !important;
+    transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    overflow: hidden;
+  }
+
+  body.cart-drawer-open #pos-cart-aside {
+    transform: translateY(0) !important;
+  }
+
+  #pos-cart-aside::before {
+    content: '';
+    display: block;
+    flex: 0 0 auto;
+    width: 2.5rem;
+    height: 0.3rem;
+    margin: 0.5rem auto 0.1rem;
+    border-radius: 9999px;
+    background: #e5e7eb;
+  }
+
+  #cart-items {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Quick restock modal */
+body.restock-open {
+  overflow: hidden !important;
+}
+
+.restock-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 0.8rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.restock-tab:hover {
+  color: var(--primary-strong);
+}
+
+.restock-tab.active {
+  color: var(--primary-strong);
+  border-bottom-color: var(--primary-strong);
+  background: var(--primary-soft);
+  border-radius: 0.75rem 0.75rem 0 0;
+}
+
+@media (max-width: 767px) {
+  .restock-tab {
+    padding: 0.6rem 0.65rem;
+    font-size: 0.7rem;
+  }
+}
+
+/* The sheet is mobile-only; desktop keeps the full sidebar. */
+@media (min-width: 768px) {
+  .mobile-nav-sheet {
+    display: none !important;
+  }
+}

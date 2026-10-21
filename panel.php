@@ -102,7 +102,7 @@
 
                 <!-- Vista Escritorio: Tabla completa (>= md) -->
                 <div class="hidden md:block overflow-x-auto w-full">
-                    <table class="w-full min-w-[760px] text-left border-collapse">
+                    <table class="panel-products-table w-full min-w-[760px] text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-200/80">
                                 <th class="px-5 py-3 font-bold">#</th>
@@ -121,6 +121,7 @@
                         </tbody>
                     </table>
                 </div>
+                <div id="products-pager" class="responsive-pager hidden"></div>
             </section>
 
             <!-- Materials at risk -->
@@ -157,6 +158,7 @@
                         </tbody>
                     </table>
                 </div>
+                <div id="materials-pager" class="responsive-pager hidden"></div>
             </section>
 
             <p id="panel-footnote" class="text-[10px] sm:text-[11px] text-slate-400 font-medium pb-2 text-center sm:text-left"></p>
@@ -176,6 +178,10 @@
             medio:   ['Medio', 'bg-amber-300', 'text-amber-700'],
         };
         const TARGET_KEY = 'sweetpos.panel.targetDays';
+        let panelProducts = [];
+        let panelMaterials = [];
+        let productPage = 1;
+        let materialPage = 1;
 
         const money = n => '$' + Number(n || 0).toFixed(2);
         const num = (n, digits = 2) => Number(n || 0).toLocaleString('es-VE', { maximumFractionDigits: digits });
@@ -196,6 +202,12 @@
             select.addEventListener('change', () => {
                 try { localStorage.setItem(TARGET_KEY, select.value); } catch (e) {}
                 loadInsights();
+            });
+            SweetPagination.onBreakpointChange(() => {
+                productPage = 1;
+                materialPage = 1;
+                drawProductsPage();
+                drawMaterialsPage();
             });
             loadInsights();
         });
@@ -308,21 +320,33 @@
         }
 
         function renderProducts(products) {
+            panelProducts = Array.isArray(products) ? products : [];
+            productPage = 1;
+            drawProductsPage();
+        }
+
+        function drawProductsPage() {
+            const products = panelProducts;
             const table = document.getElementById('products-table');
             const cards = document.getElementById('products-cards');
+            const pager = document.getElementById('products-pager');
             const countEl = document.getElementById('products-count');
+            const state = SweetPagination.paginate(products, productPage, SweetPagination.pageSize(4, 10));
+            productPage = state.page;
+            const pageProducts = state.items;
             if (countEl) countEl.textContent = products.length ? `${products.length} producto(s)` : '';
 
             if (!products.length) {
                 const emptyMsg = '<div class="text-center py-8 text-slate-400 font-medium text-xs sm:text-sm">No hay productos activos.</div>';
                 if (cards) cards.innerHTML = emptyMsg;
                 if (table) table.innerHTML = '<tr><td colspan="9" class="text-center py-10 text-slate-400 font-medium">No hay productos activos.</td></tr>';
+                SweetPagination.render(pager, { page: 1, pages: 1, total: 0, perPage: state.perPage, onChange: () => {} });
                 return;
             }
 
             // Desktop table
             if (table) {
-                table.innerHTML = products.map(p => `
+                table.innerHTML = pageProducts.map(p => `
                     <tr class="hover:bg-pink-50/30 transition-colors">
                         <td class="px-5 py-3 text-xs font-extrabold text-slate-400 font-heading">${p.sold_30d > 0 ? Number(p.rank) : '—'}</td>
                         <td class="px-5 py-3">
@@ -349,7 +373,7 @@
 
             // Mobile cards
             if (cards) {
-                cards.innerHTML = products.map(p => `
+                cards.innerHTML = pageProducts.map(p => `
                     <div class="p-4 flex flex-col gap-3 hover:bg-pink-50/20 transition-colors">
                         <div class="flex items-center justify-between gap-2">
                             <div class="flex items-center gap-2.5 min-w-0">
@@ -400,17 +424,41 @@
                     </div>
                 `).join('');
             }
+
+            SweetPagination.render(pager, {
+                page: state.page,
+                pages: state.pages,
+                total: state.total,
+                perPage: state.perPage,
+                label: 'productos',
+                onChange: (next) => {
+                    productPage = next;
+                    drawProductsPage();
+                    document.getElementById('products-pager')?.closest('section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                },
+            });
+            if (window.lucide) lucide.createIcons();
         }
 
         function renderMaterials(materials) {
+            panelMaterials = Array.isArray(materials) ? materials : [];
+            materialPage = 1;
+            drawMaterialsPage();
+        }
+
+        function drawMaterialsPage() {
             const table = document.getElementById('materials-table');
             const cards = document.getElementById('materials-cards');
+            const pager = document.getElementById('materials-pager');
             const countEl = document.getElementById('materials-count');
 
-            const atRisk = (materials || [])
+            const atRisk = (panelMaterials || [])
                 .filter(m => m.status !== 'ok' || (m.blocks && m.blocks.length))
                 .sort((a, b) => ((b.blocks && b.blocks.length) ? 1 : 0) - ((a.blocks && a.blocks.length) ? 1 : 0)
                              || (a.coverage_days ?? Infinity) - (b.coverage_days ?? Infinity));
+            const state = SweetPagination.paginate(atRisk, materialPage, SweetPagination.pageSize(4, 10));
+            materialPage = state.page;
+            const pageMaterials = state.items;
 
             if (countEl) countEl.textContent = atRisk.length ? `${atRisk.length} en riesgo` : '0 en riesgo';
 
@@ -418,12 +466,13 @@
                 const emptyMsg = '<div class="text-center py-6 text-emerald-700 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 bg-emerald-50/40"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0"></i> Ningún insumo en riesgo de agotarse.</div>';
                 if (cards) cards.innerHTML = emptyMsg;
                 if (table) table.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-emerald-700 font-semibold bg-emerald-50/40">Ningún insumo en riesgo de agotarse.</td></tr>';
+                SweetPagination.render(pager, { page: 1, pages: 1, total: 0, perPage: state.perPage, onChange: () => {} });
                 return;
             }
 
             // Desktop table
             if (table) {
-                table.innerHTML = atRisk.map(m => `
+                table.innerHTML = pageMaterials.map(m => `
                     <tr class="hover:bg-pink-50/30 transition-colors">
                         <td class="px-5 py-3 font-bold text-slate-800 font-heading">${escapeHtml(m.name)}
                             ${m.used_by === 0 ? '<span class="block text-[10px] text-slate-400 font-medium">Sin recetas</span>' : ''}</td>
@@ -446,7 +495,7 @@
 
             // Mobile cards
             if (cards) {
-                cards.innerHTML = atRisk.map(m => `
+                cards.innerHTML = pageMaterials.map(m => `
                     <div class="p-4 flex flex-col gap-3 hover:bg-pink-50/20 transition-colors">
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
@@ -494,6 +543,20 @@
                     </div>
                 `).join('');
             }
+
+            SweetPagination.render(pager, {
+                page: state.page,
+                pages: state.pages,
+                total: state.total,
+                perPage: state.perPage,
+                label: 'insumos',
+                onChange: (next) => {
+                    materialPage = next;
+                    drawMaterialsPage();
+                    document.getElementById('materials-pager')?.closest('section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                },
+            });
+            if (window.lucide) lucide.createIcons();
         }
     </script>
 </body>

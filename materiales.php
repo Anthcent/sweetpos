@@ -34,7 +34,7 @@
                 </div>
                 <div>
                     <h1 class="text-lg sm:text-2xl font-extrabold tracking-tight text-slate-900 font-heading leading-tight">Insumos & Materias Primas</h1>
-                    <p class="text-[11px] sm:text-xs text-slate-500 font-medium line-clamp-1 sm:line-clamp-none">Control de stock de ingredientes para la elaboración</p>
+                    <p class="text-[11px] sm:text-xs text-slate-500 font-medium line-clamp-2 sm:line-clamp-none">Control de stock de ingredientes para la elaboración</p>
                 </div>
             </div>
 
@@ -77,7 +77,7 @@
 
         <!-- BARRA DEDICADA DE FILTROS DE INSUMOS (100% VISIBLE Y DINÁMICA) -->
         <div class="px-4 sm:px-6 lg:px-8 pt-3.5 pb-1 shrink-0 z-10">
-            <div class="flex items-center gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar py-1 w-full">
+            <div class="filter-scroll-fade flex items-center gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar py-1 w-full">
                 <span class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider hidden sm:inline-flex items-center gap-1.5 mr-1 shrink-0 font-heading">
                     <i data-lucide="filter" class="w-3.5 h-3.5 text-pink-500"></i>
                     <span>Filtrar:</span>
@@ -110,8 +110,11 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 z-10 relative">
-            <div class="bg-white rounded-3xl shadow-card border border-slate-200/90 overflow-hidden">
-                <div class="overflow-x-auto w-full">
+            <div id="materials-list" class="bg-white rounded-3xl shadow-card border border-slate-200/90 overflow-hidden">
+                <div id="materials-cards" class="mobile-data-list md:hidden">
+                    <div class="mobile-data-empty">Cargando insumos...</div>
+                </div>
+                <div class="hidden md:block overflow-x-auto w-full">
                     <table class="w-full min-w-[560px] text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200/80">
@@ -127,6 +130,7 @@
                         </tbody>
                     </table>
                 </div>
+                <div id="materials-pager" class="responsive-pager hidden"></div>
             </div>
         </div>
     </main>
@@ -145,7 +149,7 @@
                     <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>
-            <form id="material-form" class="p-6 flex flex-col gap-4">
+            <form id="material-form" class="p-6 flex flex-col gap-4 overflow-y-auto">
                 <input type="hidden" id="m-id" value="">
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nombre del Insumo</label>
@@ -171,6 +175,17 @@
                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Stock Mínimo (Alerta de reposición)</label>
                     <input type="number" id="m-min-stock" value="0" min="0" step="0.01" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-heading text-base font-bold">
                 </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Presentación de compra</label>
+                        <input type="text" id="m-presentation-label" maxlength="80" placeholder="Ej. Saco 1 kg, Caja 12" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-sm font-semibold">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Cantidad por presentación</label>
+                        <input type="number" id="m-presentation-qty" min="0" step="0.01" placeholder="1" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-heading text-base font-bold">
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-400 -mt-2">Opcional. Ejemplo: si compras un saco de 5 kg, escribe “Saco 5 kg” y 5. La reposición rápida comprará por sacos.</p>
                 <div id="m-note-container" class="hidden">
                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Motivo del ajuste de stock (opcional)</label>
                     <input type="text" id="m-note" maxlength="200" placeholder="Ej. Conteo físico, merma, vencimiento" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-sm">
@@ -228,6 +243,8 @@
         const CAN_DELETE = <?= canAccess('inventario_delete') ? 'true' : 'false' ?>;
         let materialsCache = [];
         let currentMatFilter = 'all';
+        let matPage = 1;
+        let matFiltered = [];
 
         lucide.createIcons();
         document.addEventListener('DOMContentLoaded', () => {
@@ -264,6 +281,11 @@
                 });
             });
 
+            SweetPagination.onBreakpointChange(() => {
+                matPage = 1;
+                renderMaterialsTable(matFiltered);
+            });
+
             loadMaterials().then(openPurchaseFromQuery);
         });
 
@@ -291,6 +313,8 @@
                 filterMaterials();
             } catch (e) {
                 table.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-rose-500 font-medium">Error al cargar insumos.</td></tr>';
+                const cards = document.getElementById('materials-cards');
+                if (cards) cards.innerHTML = '<div class="mobile-data-empty text-rose-500">Error al cargar insumos.</div>';
             }
         }
 
@@ -311,7 +335,7 @@
             if (elOut) elOut.textContent = out;
         }
 
-        function filterMaterials() {
+        function filterMaterials(resetPage = true) {
             const q = (document.getElementById('materials-search')?.value || '').trim().toLowerCase();
             const clearBtn = document.getElementById('materials-search-clear');
             const countEl = document.getElementById('materials-search-count');
@@ -349,6 +373,8 @@
                 }
             }
 
+            matFiltered = filtered;
+            if (resetPage) matPage = 1;
             renderMaterialsTable(filtered);
         }
 
@@ -365,17 +391,68 @@
             }
         }
 
+        function materialCardHtml(m) {
+            const low = parseFloat(m.stock) <= parseFloat(m.min_stock);
+            const actions = `
+                <button onclick="openPurchaseModal(${Number(m.id)})" class="mobile-data-action">
+                    <i data-lucide="shopping-cart" class="w-4 h-4"></i><span>Compra</span>
+                </button>
+                <button onclick="editMaterial(${Number(m.id)})" class="mobile-data-action">
+                    <i data-lucide="pencil" class="w-4 h-4"></i><span>Editar</span>
+                </button>
+                ${CAN_DELETE ? `
+                <button onclick="deleteMaterial(${Number(m.id)})" class="mobile-data-action mobile-data-action-danger">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i><span>Eliminar</span>
+                </button>` : ''}`;
+            return `
+                <article class="mobile-data-card">
+                    <div class="mobile-data-card-top">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 border border-amber-100 shadow-xs">
+                                <i data-lucide="wheat" class="w-5 h-5 stroke-[1.8]"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h3 class="mobile-data-card-title">${escapeHtml(m.name)}</h3>
+                                <p class="mobile-data-card-sub">ID #${m.id} · ${escapeHtml(m.unit)}${m.presentation_label ? ' · ' + escapeHtml(m.presentation_label) : ''}</p>
+                            </div>
+                        </div>
+                        <div class="mobile-data-card-side">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold ${low ? 'stock-pill low-stock' : 'stock-pill in-stock'}">
+                                ● ${parseFloat(m.stock).toFixed(2)} ${escapeHtml(m.unit)}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mobile-data-grid">
+                        <div class="mobile-data-field">
+                            <span class="mobile-data-label">Stock actual</span>
+                            <span class="mobile-data-value">${parseFloat(m.stock).toFixed(2)} ${escapeHtml(m.unit)}</span>
+                        </div>
+                        <div class="mobile-data-field">
+                            <span class="mobile-data-label">Stock mínimo</span>
+                            <span class="mobile-data-value">${parseFloat(m.min_stock).toFixed(2)} ${escapeHtml(m.unit)}</span>
+                        </div>
+                    </div>
+                    <div class="mobile-data-actions">${actions}</div>
+                </article>`;
+        }
+
         function renderMaterialsTable(materials) {
             const table = document.getElementById('materials-table');
-            table.innerHTML = '';
+            const cards = document.getElementById('materials-cards');
+            const pager = document.getElementById('materials-pager');
+            const state = SweetPagination.paginate(materials, matPage, SweetPagination.pageSize(6, 12));
+            matPage = state.page;
+
             if (materials.length === 0) {
                 table.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-slate-400 font-medium">No se encontraron insumos coincidentes.</td></tr>';
+                if (cards) cards.innerHTML = '<div class="mobile-data-empty">No se encontraron insumos coincidentes.</div>';
+                SweetPagination.render(pager, { page: 1, pages: 1, total: 0, perPage: state.perPage, onChange: () => {} });
                 return;
             }
 
-            materials.forEach(m => {
+            table.innerHTML = state.items.map(m => {
                 const low = parseFloat(m.stock) <= parseFloat(m.min_stock);
-                table.innerHTML += `
+                return `
                     <tr class="hover:bg-pink-50/30 transition-colors group">
                         <td class="px-6 py-3.5">
                             <div class="flex items-center gap-3">
@@ -385,6 +462,7 @@
                                 <div>
                                     <span class="font-bold text-slate-800 font-heading block leading-tight cursor-pointer hover:text-pink-600 transition-colors" onclick="editMaterial(${Number(m.id)})">${escapeHtml(m.name)}</span>
                                     <span class="text-[10px] text-slate-400 font-mono">ID #${m.id}</span>
+                                    ${m.presentation_label ? `<span class="block text-[10px] text-slate-400">Compra: ${escapeHtml(m.presentation_label)}</span>` : ''}
                                 </div>
                             </div>
                         </td>
@@ -411,8 +489,22 @@
                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                             </button>` : ''}
                         </td>
-                    </tr>
-                `;
+                    </tr>`;
+            }).join('');
+
+            if (cards) cards.innerHTML = state.items.map(materialCardHtml).join('');
+
+            SweetPagination.render(pager, {
+                page: state.page,
+                pages: state.pages,
+                total: state.total,
+                perPage: state.perPage,
+                label: 'insumos',
+                onChange: (next) => {
+                    matPage = next;
+                    renderMaterialsTable(materials);
+                    document.getElementById('materials-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                },
             });
             lucide.createIcons();
         }
@@ -424,6 +516,8 @@
             document.getElementById('m-unit').value = 'kg';
             document.getElementById('m-stock').value = '0';
             document.getElementById('m-min-stock').value = '0';
+            document.getElementById('m-presentation-label').value = '';
+            document.getElementById('m-presentation-qty').value = '';
             document.getElementById('m-note').value = '';
             document.getElementById('m-note-container').classList.add('hidden');
             document.getElementById('m-error').classList.add('hidden');
@@ -443,6 +537,8 @@
             document.getElementById('m-unit').value = m.unit;
             document.getElementById('m-stock').value = m.stock;
             document.getElementById('m-min-stock').value = m.min_stock;
+            document.getElementById('m-presentation-label').value = m.presentation_label || '';
+            document.getElementById('m-presentation-qty').value = Number(m.presentation_qty) > 0 ? m.presentation_qty : '';
             document.getElementById('m-note').value = '';
             document.getElementById('m-note-container').classList.remove('hidden');
             document.getElementById('m-error').classList.add('hidden');
@@ -462,6 +558,8 @@
                 unit: document.getElementById('m-unit').value,
                 stock: parseFloat(document.getElementById('m-stock').value),
                 min_stock: parseFloat(document.getElementById('m-min-stock').value),
+                presentation_label: document.getElementById('m-presentation-label').value.trim(),
+                presentation_qty: parseFloat(document.getElementById('m-presentation-qty').value) || 0,
                 note: document.getElementById('m-note').value.trim() || undefined
             };
             const errDiv = document.getElementById('m-error');

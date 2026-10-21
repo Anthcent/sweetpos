@@ -38,7 +38,7 @@
                 </div>
                 <div>
                     <h1 class="text-lg sm:text-2xl font-extrabold tracking-tight text-slate-900 font-heading leading-tight">Zonas de Mesa</h1>
-                    <p class="text-[11px] sm:text-xs text-slate-500 font-medium line-clamp-1 sm:line-clamp-none">Comandas activas & pedidos pendientes de cobro</p>
+                    <p class="text-[11px] sm:text-xs text-slate-500 font-medium line-clamp-2 sm:line-clamp-none">Comandas activas & pedidos pendientes de cobro</p>
                 </div>
             </div>
 
@@ -80,7 +80,7 @@
 
         <!-- BARRA DEDICADA DE FILTROS DE MESAS (100% VISIBLE Y DINÁMICA) -->
         <div class="px-4 sm:px-6 lg:px-8 pt-3.5 pb-1 shrink-0 z-10">
-            <div class="flex items-center gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar py-1 w-full">
+            <div class="filter-wrap-mobile flex items-center gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar py-1 w-full">
                 <span class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider hidden sm:inline-flex items-center gap-1.5 mr-1 shrink-0 font-heading">
                     <i data-lucide="filter" class="w-3.5 h-3.5 text-pink-500"></i>
                     <span>Filtrar:</span>

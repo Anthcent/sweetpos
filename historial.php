@@ -23,10 +23,9 @@
     <!-- Sidebar Navegación -->
     <?php require '_sidebar.php'; ?>
 
-    <!-- Fondo desenfocado decorativo -->
-    <div class="absolute top-0 right-0 w-[28rem] h-[28rem] bg-pink-100/30 rounded-full mix-blend-multiply filter blur-3xl opacity-30 -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-
     <main class="flex-1 flex flex-col h-full overflow-hidden relative z-10">
+        <!-- Fondo desenfocado decorativo (dentro de main para que no genere scroll horizontal) -->
+        <div class="absolute top-0 right-0 w-[28rem] h-[28rem] bg-pink-100/30 rounded-full mix-blend-multiply filter blur-3xl opacity-30 -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
         
         <!-- Header -->
         <!-- Header -->
@@ -37,7 +36,7 @@
                 </div>
                 <div>
                     <h1 class="text-lg sm:text-2xl font-extrabold tracking-tight text-slate-900 font-heading leading-tight">Historial de Ventas</h1>
-                    <p class="text-[11px] sm:text-xs text-slate-500 font-medium line-clamp-1 sm:line-clamp-none">Auditoría, filtros & comanda de transacciones</p>
+                    <p class="text-[11px] sm:text-xs text-slate-500 font-medium line-clamp-2 sm:line-clamp-none">Auditoría, filtros & comanda de transacciones</p>
                 </div>
             </div>
 
@@ -129,7 +128,7 @@
                 <!-- Píldoras de Filtros Visibles -->
                 <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 pt-2 border-t border-slate-100/90">
                     <!-- Filtro por Estado -->
-                    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+                    <div class="filter-wrap-md flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
                         <span class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider hidden sm:inline-flex items-center gap-1 mr-1 shrink-0 font-heading">
                             <i data-lucide="clock" class="w-3.5 h-3.5 text-pink-500"></i>
                             <span>Estado:</span>
@@ -157,7 +156,7 @@
                     </div>
 
                     <!-- Filtro por Método de Pago -->
-                    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+                    <div class="filter-wrap-md flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
                         <span class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider hidden sm:inline-flex items-center gap-1 mr-1 shrink-0 font-heading">
                             <i data-lucide="credit-card" class="w-3.5 h-3.5 text-pink-500"></i>
                             <span>Pago:</span>
@@ -189,6 +188,7 @@
             <div class="flex-1 flex flex-col gap-4 pb-20" id="history-container">
                 <!-- Inyectado por JS -->
             </div>
+            <div id="history-pager" class="responsive-pager hidden"></div>
 
         </div>
     </main>
@@ -199,6 +199,8 @@
         lucide.createIcons();
 
         let allSales = [];
+        let historyPage = 1;
+        let filteredSalesCache = [];
 
         const historyContainer = document.getElementById('history-container');
         const filterSearch = document.getElementById('filter-search');
@@ -211,6 +213,10 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchHistory();
+            SweetPagination.onBreakpointChange(() => {
+                historyPage = 1;
+                if (filteredSalesCache.length) renderSales(filteredSalesCache);
+            });
             filterSearch.addEventListener('input', applyFilters);
 
             // Teclado '/' para enfocar buscador
@@ -317,6 +323,7 @@
             }
 
             updateKPIs(filteredSales);
+            historyPage = 1;
             renderSales(filteredSales);
         }
 
@@ -401,8 +408,13 @@
         }
 
         function renderSales(sales) {
+            filteredSalesCache = sales;
+            const pager = document.getElementById('history-pager');
+            const state = SweetPagination.paginate(sales, historyPage, SweetPagination.pageSize(6, 12));
+            historyPage = state.page;
+            const pageSales = state.items;
             historyContainer.innerHTML = '';
-            
+
             if(sales.length === 0) {
                 historyContainer.innerHTML = `
                     <div class="flex flex-col items-center justify-center py-20 text-slate-400">
@@ -413,11 +425,12 @@
                         <p class="text-xs text-slate-400">Prueba cambiando los criterios de filtro.</p>
                     </div>
                 `;
+                SweetPagination.render(pager, { page: 1, pages: 1, total: 0, perPage: state.perPage, onChange: () => {} });
                 lucide.createIcons();
                 return;
             }
 
-            sales.forEach(sale => {
+            pageSales.forEach(sale => {
                 const dateObj = new Date(sale.created_at);
                 const dateStr = dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
                 const timeStr = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -511,6 +524,19 @@
                     </div>
                 `;
                 historyContainer.appendChild(card);
+            });
+
+            SweetPagination.render(pager, {
+                page: state.page,
+                pages: state.pages,
+                total: state.total,
+                perPage: state.perPage,
+                label: 'ventas',
+                onChange: (next) => {
+                    historyPage = next;
+                    renderSales(filteredSalesCache);
+                    historyContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                },
             });
             lucide.createIcons();
         }
