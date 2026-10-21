@@ -115,6 +115,26 @@ check(strpos($voidNote['content'], $cp('Error de digitación')) !== false, 'void
 expectError(fn() => pdfBuildDeliveryNote($pdo, $pending, 'x', $opts), 409, 'pending sale is rejected');
 expectError(fn() => pdfBuildDeliveryNote($pdo, 999999, 'x', $opts), 404, 'unknown sale');
 check((int)$pdo->query("SELECT COUNT(*) FROM delivery_notes")->fetchColumn() === $baseSeq + 3, 'rejected requests consume no number');
+
+echo "Comprobante (JSON) y acceso\n";
+$receipt = deliveryNoteReceipt($pdo, $paid1, 'cajera_ana');
+check($receipt['note']['number'] === $n(1), 'receipt reuses the delivery-note number');
+check($receipt['sale']['table_label'] === 'Mesa 4' && $receipt['sale']['seller'] === 'cajera_ana', 'receipt table and seller');
+check($receipt['client']['cedula'] === 'V-98765432' && $receipt['payment']['label'] === 'Pago Móvil', 'receipt client and payment');
+check(count($receipt['items']) === 2 && $receipt['items'][0]['unit_price'] === 2.5 && $receipt['total'] === 10.0, 'receipt items and total');
+check($receipt['voided'] === null && deliveryNoteReceipt($pdo, $voided, 'x')['voided']['reason'] === 'Error de digitación', 'receipt void info');
+check(deliveryNoteReceipt($pdo, $paid2, 'x')['client'] === null, 'quick sale has no client');
+$asVendor = fn(string $user) => ['role' => 'vendedor', 'username' => $user];
+check(deliveryNoteReceipt($pdo, $paid1, 'cajera_ana', $asVendor('cajera_ana'))['sale']['id'] === $paid1, 'vendedor sees own sale');
+check(deliveryNoteReceipt($pdo, $paid1, 'g', ['role' => 'gerente', 'username' => 'g'])['sale']['id'] === $paid1, 'gerente sees any sale');
+expectError(fn() => deliveryNoteReceipt($pdo, $paid1, 'otro', $asVendor('otro')), 403, 'vendedor blocked on another seller\'s sale');
+expectError(fn() => pdfBuildDeliveryNote($pdo, $paid1, 'otro', $opts + ['viewer' => $asVendor('otro')]), 403, 'PDF applies the same restriction');
+expectError(fn() => deliveryNoteReceipt($pdo, $pending, 'otro', $asVendor('otro')), 403, 'vendedor gets 403 before the pending status');
+expectError(fn() => deliveryNoteReceipt($pdo, $pending, 'x'), 409, 'pending receipt is rejected');
+$pdo->prepare("UPDATE sales SET paid_by = 'cobrador' WHERE id = ?")->execute([$paid2]);
+check(deliveryNoteReceipt($pdo, $paid2, 'cobrador', $asVendor('cobrador'))['sale']['id'] === $paid2, 'vendedor who collected the order sees it');
+check((int)$pdo->query("SELECT COUNT(*) FROM delivery_notes")->fetchColumn() === $baseSeq + 3, 'receipts and refusals consume no extra number');
+
 $logoOk = pdfResolveLogo(pdfBusinessConfig()['logo_path']) !== null;
 check(!$logoOk || strpos($note1['content'], '/Subtype /Image') !== false, 'logo embedded when usable' . ($logoOk ? '' : ' (skipped: no usable logo)'));
 

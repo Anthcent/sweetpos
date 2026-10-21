@@ -168,8 +168,8 @@ if ($method == 'GET') {
         $paidAt = $status === 'paid'
             ? (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s')
             : null;
-        $stmt = $pdo->prepare("INSERT INTO sales (total_amount, status, table_number, payment_method, client_id, reference_number, username, paid_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$total_amount, $status, $table_number, $payment_method, $client_id, $reference_number, currentUsername(), $paidAt]);
+        $stmt = $pdo->prepare("INSERT INTO sales (total_amount, status, table_number, payment_method, client_id, reference_number, username, paid_at, paid_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$total_amount, $status, $table_number, $payment_method, $client_id, $reference_number, currentUsername(), $paidAt, $status === 'paid' ? currentUsername() : null]);
         $sale_id = sweetposLastInsertId($pdo, 'sales');
 
         $stmt_item = $pdo->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, subtotal) VALUES (?, ?, ?, ?)");
@@ -208,9 +208,9 @@ if ($method == 'GET') {
     }
 
     try {
-        $stmt = $pdo->prepare("UPDATE sales SET status = 'paid', payment_method = ?, reference_number = COALESCE(?, reference_number), paid_at = CURRENT_TIMESTAMP
+        $stmt = $pdo->prepare("UPDATE sales SET status = 'paid', payment_method = ?, reference_number = COALESCE(?, reference_number), paid_at = CURRENT_TIMESTAMP, paid_by = ?
                                WHERE id = ? AND status = 'pending'");
-        $stmt->execute([$payment_method, $reference, $saleId]);
+        $stmt->execute([$payment_method, $reference, currentUsername(), $saleId]);
         if ($stmt->rowCount() === 0) {
             jsonError("La orden no existe o ya no esta pendiente.", 409);
             exit();

@@ -189,6 +189,7 @@
     </div>
 
     <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+    <script src="assets/receipt.js"></script>
 
     <script>
         // Anular ordenes (con devolucion de stock) queda reservado a admin/gerente
@@ -506,6 +507,7 @@
                     showToast('Pago registrado correctamente');
                     closePaymentModal();
                     loadPendingTables();
+                    if (window.SweetReceipt) SweetReceipt.show(saleId, { autoClose: true });
                 } else {
                     const data = await res.json().catch(() => ({}));
                     showToast(data.error || 'Error al registrar pago', 'error');

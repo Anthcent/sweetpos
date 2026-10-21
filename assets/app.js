@@ -759,6 +759,11 @@ window.toggleReferenceField = function() {
     }
 }
 
+// Receipt card after a collected sale (assets/receipt.js); optional on this page.
+function showSaleReceipt(saleId) {
+    if (window.SweetReceipt) window.SweetReceipt.show(saleId, { autoClose: true });
+}
+
 // Procesar Venta (Desde Carrito POS)
 async function processCheckout(status) {
     if(cart.length === 0) return;
@@ -809,6 +814,7 @@ async function processCheckout(status) {
             fetchProducts();
             closeCheckoutModal();
             fetchActiveTables();
+            if (status === 'paid' && result.sale_id) showSaleReceipt(result.sale_id);
         } else {
             showToast(result.error || 'Error al procesar orden', 'error');
             // El stock pudo cambiar (otra caja vendio el producto): refrescar disponibilidad
@@ -937,6 +943,7 @@ async function submitPosTablePayment() {
             showToast('Pago registrado correctamente');
             closePosPaymentModal();
             fetchActiveTables();
+            showSaleReceipt(saleId);
         } else {
             const data = await res.json();
             showToast(data.error || 'Error al registrar pago', 'error');

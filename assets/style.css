@@ -2175,3 +2175,332 @@ body.restock-open {
     display: none !important;
   }
 }
+
+/* =========================================================
+   RECEIPT CARD (assets/receipt.js)
+   ========================================================= */
+.sr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.sr-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(37, 29, 34, 0.32);
+  animation: srFade 200ms ease-out both;
+}
+
+.sr-card {
+  position: relative;
+  width: min(100%, 22rem);
+  max-height: calc(100dvh - 2rem);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-soft);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-overlay);
+  overflow: hidden;
+  outline: none;
+  animation: srEnter 260ms var(--ease-out) both;
+}
+
+.sr-overlay.sr-leaving .sr-card { animation: srLeave 180ms ease-in both; }
+.sr-overlay.sr-leaving .sr-backdrop { animation: srFadeOut 180ms ease-in both; }
+
+@keyframes srEnter {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes srLeave {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(6px) scale(0.98); }
+}
+@keyframes srFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes srFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+.sr-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 0.75rem 0.5rem 1rem;
+}
+
+.sr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--primary-blush);
+  color: var(--primary-deep);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.sr-chip-ok {
+  background: var(--mint-soft);
+  color: var(--mint-text);
+}
+
+.sr-icon-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  color: #64748b;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.sr-icon-btn:hover { background: #f1f5f9; color: #0f172a; }
+
+/* The dialog container only receives programmatic focus; its controls keep the
+   global :focus-visible ring. */
+.sr-card:focus,
+.sr-card:focus-visible {
+  outline: none !important;
+}
+
+.sr-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 1rem;
+}
+
+.sr-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 0;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* The ticket itself */
+.sr-paper {
+  position: relative;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  padding: 1rem 1rem 1.1rem;
+  color: #1e293b;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-low);
+  overflow: hidden;
+}
+
+.sr-business { text-align: center; color: #64748b; }
+.sr-business p { margin: 0; }
+.sr-business .sr-business-name {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 0.15rem;
+}
+
+.sr-cut {
+  border-top: 1.5px dashed #cbd5e1;
+  margin: 0.75rem 0;
+}
+
+.sr-doc { text-align: center; margin-bottom: 0.6rem; }
+.sr-doc p { margin: 0; }
+.sr-doc-label {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary-strong);
+}
+.sr-doc-number {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+}
+
+.sr-rows { display: flex; flex-direction: column; gap: 0.2rem; }
+.sr-row { display: flex; justify-content: space-between; gap: 0.75rem; }
+.sr-row span:first-child { color: #64748b; flex-shrink: 0; }
+.sr-row span:last-child { font-weight: 700; text-align: right; overflow-wrap: anywhere; }
+
+.sr-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.sr-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 0.75rem;
+}
+.sr-item-name { grid-column: 1 / -1; font-weight: 700; color: #0f172a; overflow-wrap: anywhere; }
+.sr-item-calc { color: #64748b; }
+.sr-item-sub { font-weight: 700; text-align: right; }
+.sr-item-empty { display: block; color: #94a3b8; font-style: italic; }
+
+.sr-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  color: #0f172a;
+}
+.sr-total span:first-child { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; }
+.sr-total span:last-child { font-size: 1.5rem; line-height: 1.1; }
+
+.sr-footer {
+  margin: 0;
+  text-align: center;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.sr-footer-soft { font-weight: 600; letter-spacing: 0; text-transform: none; font-size: 0.7rem; margin-top: 0.15rem; }
+
+.sr-stamp {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-18deg);
+  padding: 0.2rem 0.9rem;
+  border: 3px solid rgba(225, 29, 72, 0.55);
+  border-radius: 0.5rem;
+  color: rgba(225, 29, 72, 0.6);
+  font-family: 'Outfit', sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  pointer-events: none;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.sr-void-note {
+  margin: 0 0 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.5rem;
+  background: #fff1f2;
+  color: #be123c;
+  font-weight: 700;
+  text-align: center;
+}
+
+.sr-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+}
+.sr-actions[hidden] { display: none; }
+
+.sr-print {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.sr-pdf {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.sr-pdf:hover { background: var(--primary-soft); color: var(--primary-deep); }
+
+.sr-progress {
+  height: 3px;
+  background: var(--primary-blush);
+}
+.sr-progress span {
+  display: block;
+  height: 100%;
+  background: var(--primary-strong);
+  transform-origin: left center;
+  transform: scaleX(1);
+}
+.sr-overlay.sr-paused .sr-progress span { background: var(--primary-hover); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sr-card,
+  .sr-backdrop,
+  .sr-overlay.sr-leaving .sr-card,
+  .sr-overlay.sr-leaving .sr-backdrop { animation: none; }
+}
+
+/* Print only the ticket, 80 mm wide (thermal printers). */
+@page sweet-receipt {
+  margin: 0;
+}
+
+@media print {
+  body.sr-printing {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+  body.sr-printing > :not(.sr-overlay) { display: none !important; }
+  body.sr-printing .sr-overlay {
+    page: sweet-receipt;
+    position: static;
+    display: block;
+    padding: 0;
+  }
+  body.sr-printing .sr-backdrop,
+  body.sr-printing .sr-toolbar,
+  body.sr-printing .sr-actions,
+  body.sr-printing .sr-progress { display: none !important; }
+  body.sr-printing .sr-card {
+    width: 80mm;
+    max-height: none;
+    background: #ffffff;
+    border-radius: 0;
+    box-shadow: none;
+    animation: none;
+    overflow: visible;
+  }
+  body.sr-printing .sr-body { padding: 0; overflow: visible; }
+  body.sr-printing .sr-paper {
+    padding: 4mm 4mm 6mm;
+    border-radius: 0;
+    box-shadow: none;
+    color: #000000;
+    font-size: 9pt;
+  }
+  body.sr-printing .sr-business,
+  body.sr-printing .sr-row span:first-child,
+  body.sr-printing .sr-item-calc,
+  body.sr-printing .sr-footer,
+  body.sr-printing .sr-doc-label { color: #000000; }
+  body.sr-printing .sr-cut { border-top-color: #000000; }
+}

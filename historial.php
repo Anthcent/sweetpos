@@ -194,6 +194,7 @@
     </main>
 
     <div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2"></div>
+    <script src="assets/receipt.js"></script>
 
     <script>
         lucide.createIcons();
@@ -395,6 +396,11 @@
             }
         }
 
+        // Reprint: the card stays open until it is closed or printed
+        function openReceipt(id) {
+            if (window.SweetReceipt) SweetReceipt.show(id, { autoClose: false });
+        }
+
         function toggleDetails(id) {
             const el = document.getElementById(`details-${id}`);
             const icon = document.getElementById(`icon-${id}`);
@@ -515,12 +521,17 @@
                             ${itemsHtml}
                         </div>
                         ${isVoided ? `
-                        <p class="mt-3 text-[11px] text-rose-700 font-semibold">Anulada por ${escapeHtml(sale.voided_by || '—')}${sale.void_reason ? ': ' + escapeHtml(sale.void_reason) : ''}</p>` : `
-                        <div class="mt-3 flex justify-end">
+                        <p class="mt-3 text-[11px] text-rose-700 font-semibold">Anulada por ${escapeHtml(sale.voided_by || '—')}${sale.void_reason ? ': ' + escapeHtml(sale.void_reason) : ''}</p>` : ''}
+                        <div class="mt-3 flex flex-wrap justify-end gap-2">
+                            ${isPaid || isVoided ? `
+                            <button type="button" onclick="openReceipt(${Number(sale.id)})" class="text-xs font-bold text-slate-700 hover:text-pink-700 hover:bg-pink-50 border border-slate-200 rounded-xl px-3 py-1.5 transition-all bg-white flex items-center gap-1.5">
+                                <i data-lucide="printer" class="w-3.5 h-3.5"></i> Imprimir comprobante
+                            </button>` : ''}
+                            ${isVoided ? '' : `
                             <button type="button" onclick="voidSale(${Number(sale.id)})" class="text-xs font-bold text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 rounded-xl px-3 py-1.5 transition-all bg-white flex items-center gap-1.5">
                                 <i data-lucide="ban" class="w-3.5 h-3.5"></i> Anular orden
-                            </button>
-                        </div>`}
+                            </button>`}
+                        </div>
                     </div>
                 `;
                 historyContainer.appendChild(card);

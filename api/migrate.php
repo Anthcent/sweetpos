@@ -238,6 +238,23 @@ function migrationList(): array {
             migrationAddColumn($pdo, 'materials', 'presentation_label', 'TEXT DEFAULT NULL');
             migrationAddColumn($pdo, 'materials', 'presentation_qty', 'REAL NOT NULL DEFAULT 0');
         },
+
+        // 14. Delivery-note numbering (NE-000001...), previously created lazily by
+        //     lib/delivery_notes.php; IF NOT EXISTS keeps databases where that
+        //     already happened intact. paid_by records who collected an order, so
+        //     a vendedor can reprint the receipt of a shared table they charged.
+        14 => function (PDO $pdo) {
+            migrationExec($pdo, "CREATE TABLE IF NOT EXISTS delivery_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sale_id INTEGER NOT NULL UNIQUE,
+                seq INTEGER NOT NULL UNIQUE,
+                number TEXT NOT NULL UNIQUE,
+                username TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (sale_id) REFERENCES sales(id)
+            )");
+            migrationAddColumn($pdo, 'sales', 'paid_by', 'TEXT DEFAULT NULL');
+        },
     ];
 }
 

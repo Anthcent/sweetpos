@@ -1,6 +1,7 @@
 <?php
 // api/pdf.php — Server-side PDF documents (FPDF).
-//   ?type=nota&sale_id=N                    delivery note of a paid or voided sale (any logged-in user)
+//   ?type=nota&sale_id=N                    delivery note of a paid or voided sale (admin/gerente: any;
+//                                           vendedor: only sales they created or collected)
 //   ?type=ventas&from=YYYY-MM-DD&to=YYYY-MM-DD   sales report (admin/gerente)
 //   ?type=inventario[&target_days=N]        product and material stock (admin/gerente)
 //   ?type=movimientos&item_type=&item_id=&reason=&date_from=&date_to=   stock ledger (admin/gerente)
@@ -40,7 +41,9 @@ try {
         case 'nota':
             $saleId = (int)($_GET['sale_id'] ?? 0);
             if ($saleId <= 0) pdfFail('Venta inválida.', 400);
-            $doc = pdfBuildDeliveryNote($pdo, $saleId, $username);
+            $doc = pdfBuildDeliveryNote($pdo, $saleId, $username, [
+                'viewer' => ['role' => $role, 'username' => $username],
+            ]);
             break;
         case 'ventas':
             $doc = pdfBuildSalesReport($pdo, $_GET['from'] ?? null, $_GET['to'] ?? null);

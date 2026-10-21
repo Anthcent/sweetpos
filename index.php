@@ -492,6 +492,7 @@
     <!-- Contenedor Toasts -->
     <div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2"></div>
     
+    <script src="assets/receipt.js"></script>
     <script src="assets/app.js"></script>
     <script>lucide.createIcons();</script>
 </body>
