@@ -2132,6 +2132,43 @@ body.cart-drawer-open #mobile-cart-floating-bar {
   }
 }
 
+/* Cart drawer performance on touch devices: a full-screen backdrop blur and a
+   non-promoted sheet force the browser to repaint the whole POS every frame,
+   which shows up as a laggy slide on mid-range phones. Keep the slide on the
+   compositor and drop the blur. */
+@media (max-width: 1023px) {
+  #cart-backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: rgba(37, 29, 34, 0.55);
+    transition-duration: 0.2s;
+  }
+
+  #pos-cart-aside {
+    will-change: transform;
+    backface-visibility: hidden;
+    contain: layout paint;
+  }
+}
+
+@media (max-width: 767px) {
+  #pos-cart-aside {
+    transform: translate3d(0, 100%, 0) !important;
+    transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+
+  body.cart-drawer-open #pos-cart-aside {
+    transform: translate3d(0, 0, 0) !important;
+  }
+}
+
+@media (max-width: 1023px) and (prefers-reduced-motion: reduce) {
+  #pos-cart-aside,
+  #cart-backdrop {
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Quick restock modal */
 body.restock-open {
   overflow: hidden !important;
