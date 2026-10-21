@@ -763,11 +763,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <h2 class="text-white font-extrabold text-xl sm:text-2xl tracking-tight mb-2.5 drop-shadow-md font-heading">
                         El sistema para tu negocio
                     </h2>
-
-
-                    <p class="text-pink-100 font-extrabold text-sm mt-2 tracking-wide drop-shadow-xs">
-                        Boutique &amp; Pastelería
-                    </p>
                 </div>
             </div>
         </div>
