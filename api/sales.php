@@ -4,6 +4,7 @@ require 'auth_api.php';
 apiRequireLogin();
 require 'db.php';
 require 'inventory.php';
+require_once __DIR__ . '/../lib/validation.php';
 
 // Politica de cobro (PUT):
 // Cualquier rol autenticado (incluido vendedor) puede cobrar una orden PENDIENTE,
@@ -14,6 +15,11 @@ require 'inventory.php';
 
 const PAYMENT_METHODS = ['cash', 'card', 'transfer', 'pagomovil'];
 const METHODS_WITH_REFERENCE = ['transfer', 'pagomovil'];
+// table_number used for take-away orders: several can be pending at once.
+const TAKEOUT_TABLE_NUMBER = 999;
+const MAX_LINE_QUANTITY = 9999;
+// Namespace for PostgreSQL advisory locks that serialize ticket creation per table.
+const TABLE_LOCK_NAMESPACE = 7301;
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -50,6 +56,130 @@ function validatePayment(?string $paymentMethod, ?string $reference): ?string {
         return "Debes ingresar el numero de referencia.";
     }
     return null;
+}
+
+// Groups cart lines by product. Quantities must be positive whole units.
+// Returns [product_id => quantity]; throws a 400 StockException otherwise.
+function parseSaleQuantities($items): array {
+    if (!is_array($items) || count($items) === 0) {
+        throw new StockException("No hay productos para registrar.", 400);
+    }
+    $quantities = [];
+    foreach ($items as $item) {
+        $productId = is_array($item) ? (int)($item['id'] ?? 0) : 0;
+        $rawQty = is_array($item) ? ($item['quantity'] ?? null) : null;
+        if ($productId <= 0 || !sweetposIsNonNegativeNumber($rawQty, true) || (float)$rawQty < 1) {
+            throw new StockException("Hay productos con cantidad inválida: usa números enteros mayores a 0.", 400);
+        }
+        $quantities[$productId] = ($quantities[$productId] ?? 0) + (int)$rawQty;
+        if ($quantities[$productId] > MAX_LINE_QUANTITY) {
+            throw new StockException("La cantidad máxima por producto es " . MAX_LINE_QUANTITY . ".", 400);
+        }
+    }
+    return $quantities;
+}
+
+// Prices each line with the current product price (never trusts the client).
+// Returns [[[product_id, qty, unit_price, subtotal], ...], total].
+function priceSaleLines(PDO $pdo, array $quantities): array {
+    $ids = array_keys($quantities);
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $pdo->prepare("SELECT id, name, price, is_active FROM products WHERE id IN ($placeholders)");
+    $stmt->execute($ids);
+    $productsById = [];
+    foreach ($stmt->fetchAll() as $p) $productsById[(int)$p['id']] = $p;
+
+    $lines = [];
+    $total = 0;
+    foreach ($quantities as $productId => $qty) {
+        $product = $productsById[$productId] ?? null;
+        if (!$product || !(int)$product['is_active']) {
+            throw new StockException("Uno de los productos ya no esta disponible (#$productId).", 409);
+        }
+        $unitPrice = round((float)$product['price'], 2);
+        $subtotal = round((float)$product['price'] * $qty, 2);
+        $lines[] = [$productId, $qty, $unitPrice, $subtotal];
+        $total += $subtotal;
+    }
+    return [$lines, round($total, 2)];
+}
+
+// null = no table; otherwise a whole number between 1 and 999 (999 = para llevar).
+function normalizeTableNumber($raw): ?int {
+    if ($raw === null || (is_string($raw) && trim($raw) === '')) return null;
+    $value = is_string($raw) ? trim($raw) : $raw;
+    if (!sweetposIsNonNegativeNumber($value, true) || (int)$value < 1 || (int)$value > TAKEOUT_TABLE_NUMBER) {
+        throw new StockException("Número de mesa inválido.", 400);
+    }
+    return (int)$value;
+}
+
+// Rejects a new pending ticket for a dine-in table that already has one.
+// Must run inside sweetposBeginWrite(): SQLite holds the write lock from
+// BEGIN IMMEDIATE, and PostgreSQL takes a per-table advisory lock so two
+// cashiers racing for the same table are serialized until commit.
+function assertTableIsFree(PDO $pdo, int $tableNumber): void {
+    if ($tableNumber === TAKEOUT_TABLE_NUMBER) return;
+    if (sweetposDatabaseDriver($pdo) === 'pgsql') {
+        $lock = $pdo->prepare("SELECT pg_advisory_xact_lock(CAST(? AS INTEGER), CAST(? AS INTEGER))");
+        $lock->execute([TABLE_LOCK_NAMESPACE, $tableNumber]);
+    }
+    $stmt = $pdo->prepare("SELECT id FROM sales WHERE status = 'pending' AND table_number = ? LIMIT 1");
+    $stmt->execute([$tableNumber]);
+    $saleId = $stmt->fetchColumn();
+    if ($saleId !== false) {
+        throw new StockException(
+            "La mesa $tableNumber ya está ocupada con una comanda pendiente. Agrega los productos desde Zonas de Mesa o elige otra mesa.",
+            409,
+            ["table_number" => $tableNumber, "sale_id" => (int)$saleId]
+        );
+    }
+}
+
+// Appends lines to a pending ticket: deducts stock exactly like a new order
+// (changeProductStock with reason 'sale' and ref = sale id), merges each line
+// into an existing one with the same product and unit price, and recalculates
+// the ticket total from its items. Must run inside sweetposBeginWrite().
+function appendItemsToPendingSale(PDO $pdo, int $saleId, array $quantities): float {
+    // Conditional no-op UPDATE: locks the ticket row (PostgreSQL) so a
+    // concurrent payment or void waits, and fails if it is no longer pending.
+    $guard = $pdo->prepare("UPDATE sales SET total_amount = total_amount WHERE id = ? AND status = 'pending'");
+    $guard->execute([$saleId]);
+    if ($guard->rowCount() === 0) {
+        throw new StockException("La comanda ya no está pendiente: fue cobrada o anulada.", 409);
+    }
+
+    [$lines] = priceSaleLines($pdo, $quantities);
+
+    $existing = $pdo->prepare("SELECT id, product_id, quantity, subtotal FROM sale_items WHERE sale_id = ?");
+    $existing->execute([$saleId]);
+    $existingLines = $existing->fetchAll();
+
+    $insert = $pdo->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, subtotal) VALUES (?, ?, ?, ?)");
+    $update = $pdo->prepare("UPDATE sale_items SET quantity = ?, subtotal = ? WHERE id = ?");
+    foreach ($lines as [$productId, $qty, $unitPrice, $subtotal]) {
+        changeProductStock($pdo, $productId, -$qty, StockReason::SALE, $saleId);
+
+        $merged = false;
+        foreach ($existingLines as &$line) {
+            $lineQty = (int)$line['quantity'];
+            if ((int)$line['product_id'] !== $productId || $lineQty <= 0) continue;
+            if (abs(round((float)$line['subtotal'] / $lineQty, 2) - $unitPrice) >= 0.005) continue;
+            $line['quantity'] = $lineQty + $qty;
+            $line['subtotal'] = round((float)$line['subtotal'] + $subtotal, 2);
+            $update->execute([$line['quantity'], $line['subtotal'], (int)$line['id']]);
+            $merged = true;
+            break;
+        }
+        unset($line);
+        if (!$merged) $insert->execute([$saleId, $productId, $qty, $subtotal]);
+    }
+
+    $sum = $pdo->prepare("SELECT COALESCE(SUM(subtotal), 0) FROM sale_items WHERE sale_id = ?");
+    $sum->execute([$saleId]);
+    $total = round((float)$sum->fetchColumn(), 2);
+    $pdo->prepare("UPDATE sales SET total_amount = ? WHERE id = ?")->execute([$total, $saleId]);
+    return $total;
 }
 
 if ($method == 'GET') {
@@ -105,22 +235,44 @@ if ($method == 'GET') {
         exit();
     }
 
-    // Crear nueva orden
-    if (!isset($data['items']) || !is_array($data['items']) || count($data['items']) === 0) {
-        jsonError("El carrito está vacío");
+    if ($action === 'add_items') {
+        // Agregar productos a una comanda pendiente: mismo permiso que crearla
+        // (cualquier rol autenticado) y mismo descuento de stock.
+        $saleId = (int)($data['id'] ?? 0);
+        if ($saleId <= 0) {
+            jsonError("ID de comanda requerido");
+            exit();
+        }
+        try {
+            $quantities = parseSaleQuantities($data['items'] ?? null);
+        } catch (StockException $e) {
+            jsonError($e->getMessage(), $e->status, $e->extra);
+            exit();
+        }
+
+        try {
+            sweetposBeginWrite($pdo);
+            $total = appendItemsToPendingSale($pdo, $saleId, $quantities);
+            sweetposCommitWrite($pdo);
+            echo json_encode(["message" => "Productos agregados a la comanda", "sale_id" => $saleId, "total_amount" => $total]);
+        } catch (StockException $e) {
+            sweetposRollbackWrite($pdo);
+            jsonError($e->getMessage(), $e->status, $e->extra);
+        } catch (Exception $e) {
+            sweetposRollbackWrite($pdo);
+            jsonError("Error al agregar productos a la comanda", 500);
+        }
         exit();
     }
 
-    // Agrupa cantidades por producto; el precio y el total se calculan en el servidor
-    $quantities = [];
-    foreach ($data['items'] as $item) {
-        $productId = (int)($item['id'] ?? 0);
-        $qty = (int)($item['quantity'] ?? 0);
-        if ($productId <= 0 || $qty <= 0) {
-            jsonError("Hay productos con cantidad invalida en el carrito.");
-            exit();
-        }
-        $quantities[$productId] = ($quantities[$productId] ?? 0) + $qty;
+    // Crear nueva orden
+    try {
+        // Agrupa cantidades por producto; el precio y el total se calculan en el servidor
+        $quantities = parseSaleQuantities($data['items'] ?? null);
+        $table_number = normalizeTableNumber($data['table_number'] ?? null);
+    } catch (StockException $e) {
+        jsonError($e->getMessage(), $e->status, $e->extra);
+        exit();
     }
 
     $status = $data['status'] ?? 'paid';
@@ -140,30 +292,16 @@ if ($method == 'GET') {
     } else {
         $payment_method = null;
     }
-    $table_number = isset($data['table_number']) && $data['table_number'] !== '' ? substr(trim((string)$data['table_number']), 0, 20) : null;
-    $client_id    = !empty($data['client_id']) ? (int)$data['client_id'] : null;
+    $client_id = !empty($data['client_id']) ? (int)$data['client_id'] : null;
 
-    $pdo->beginTransaction();
     try {
-        $ids = array_keys($quantities);
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $pdo->prepare("SELECT id, name, price, is_active FROM products WHERE id IN ($placeholders)");
-        $stmt->execute($ids);
-        $productsById = [];
-        foreach ($stmt->fetchAll() as $p) $productsById[(int)$p['id']] = $p;
-
-        $lines = [];
-        $total_amount = 0;
-        foreach ($quantities as $productId => $qty) {
-            $product = $productsById[$productId] ?? null;
-            if (!$product || !(int)$product['is_active']) {
-                throw new StockException("Uno de los productos ya no esta disponible (#$productId).", 409);
-            }
-            $subtotal = round((float)$product['price'] * $qty, 2);
-            $lines[] = [$productId, $qty, $subtotal];
-            $total_amount += $subtotal;
+        sweetposBeginWrite($pdo);
+        // Una mesa del salon solo puede tener una comanda pendiente a la vez
+        if ($status === 'pending' && $table_number !== null) {
+            assertTableIsFree($pdo, $table_number);
         }
-        $total_amount = round($total_amount, 2);
+
+        [$lines, $total_amount] = priceSaleLines($pdo, $quantities);
 
         $paidAt = $status === 'paid'
             ? (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s')
@@ -173,20 +311,20 @@ if ($method == 'GET') {
         $sale_id = sweetposLastInsertId($pdo, 'sales');
 
         $stmt_item = $pdo->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, subtotal) VALUES (?, ?, ?, ?)");
-        foreach ($lines as [$productId, $qty, $subtotal]) {
+        foreach ($lines as [$productId, $qty, , $subtotal]) {
             // Descuento condicional: si otro cajero vendio el ultimo helado, se rechaza la orden completa
             changeProductStock($pdo, $productId, -$qty, StockReason::SALE, $sale_id);
             $stmt_item->execute([$sale_id, $productId, $qty, $subtotal]);
         }
 
-        $pdo->commit();
+        sweetposCommitWrite($pdo);
         echo json_encode(["message" => "Orden registrada con éxito", "sale_id" => $sale_id, "total_amount" => $total_amount]);
 
     } catch (StockException $e) {
-        $pdo->rollBack();
+        sweetposRollbackWrite($pdo);
         jsonError($e->getMessage(), $e->status, $e->extra);
     } catch (Exception $e) {
-        $pdo->rollBack();
+        sweetposRollbackWrite($pdo);
         jsonError("Error al procesar orden", 500);
     }
 

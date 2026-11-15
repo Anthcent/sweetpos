@@ -211,6 +211,47 @@
         </div>
     </div>
 
+    <!-- Modal Agregar productos a una comanda pendiente -->
+    <div id="add-items-modal" role="dialog" aria-modal="true" aria-labelledby="add-items-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 max-h-[92dvh] flex flex-col">
+            <div class="px-5 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/70 shrink-0 gap-3">
+                <div class="flex items-center gap-2 min-w-0">
+                    <div class="w-8 h-8 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center shrink-0">
+                        <i data-lucide="plus-circle" class="w-4 h-4 stroke-[2.2]"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 id="add-items-title" class="font-extrabold text-base text-slate-900 font-heading leading-tight">Agregar productos</h3>
+                        <p id="add-items-subtitle" class="text-xs text-slate-600 font-semibold truncate"></p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeAddItemsModal()" aria-label="Cerrar agregar productos" class="text-slate-600 hover:text-slate-900 bg-slate-200/50 hover:bg-slate-200 rounded-full p-1.5 transition-colors shrink-0">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="px-4 sm:px-6 pt-4 pb-2 shrink-0">
+                <label for="add-items-search" class="sr-only">Buscar producto</label>
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>
+                    <input type="text" id="add-items-search" autocomplete="off" maxlength="60" placeholder="Buscar producto o categoría..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-sm font-semibold text-slate-800">
+                </div>
+            </div>
+
+            <div id="add-items-list" class="px-4 sm:px-6 py-2 overflow-y-auto flex-1 min-h-[10rem]" aria-live="polite"></div>
+
+            <div class="px-4 sm:px-6 py-3.5 bg-slate-50/80 border-t border-slate-100 shrink-0 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <p id="add-items-count" class="text-xs font-bold text-slate-600">0 artículos</p>
+                    <p id="add-items-total" class="text-xl font-black text-pink-700 font-heading leading-tight">$0.00</p>
+                </div>
+                <button type="button" id="add-items-submit" onclick="submitAddItems()" disabled class="btn-sweet-accent disabled:opacity-40 disabled:pointer-events-none text-white font-extrabold py-3 px-4 sm:px-5 rounded-2xl transition-all flex items-center justify-center gap-2 text-sm shrink-0">
+                    <i data-lucide="check-circle-2" class="w-4 h-4 stroke-[2.2]"></i>
+                    <span>Agregar a la comanda</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
     <script src="assets/receipt.js"></script>
 
@@ -461,6 +502,13 @@
                             ${itemsHtml}
                         </div>
 
+                        <div class="px-5 pb-3">
+                            <button type="button" onclick="openAddItemsModal(${Number(sale.id)})" class="btn-soft-pink w-full py-2.5 px-3 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-colors" aria-label="Agregar productos a ${isTakeaway ? 'la orden para llevar' : 'la mesa ' + escapeHtml(tNumberStr)}">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                                <span>Agregar productos</span>
+                            </button>
+                        </div>
+
                         <!-- Card Footer -->
                         <div class="bg-slate-50/70 px-5 py-3.5 border-t border-slate-100 flex justify-between items-center">
                             <div>
@@ -481,6 +529,167 @@
             });
             lucide.createIcons();
         }
+
+        /* ---------- Agregar productos a una comanda pendiente ---------- */
+        // quantities: product id -> units to append. Stock is checked again on the
+        // server, which deducts it exactly like a new ticket.
+        const addItemsState = { saleId: null, products: [], quantities: new Map(), busy: false };
+
+        function tableLabel(sale) {
+            const n = String(sale?.table_number ?? '');
+            return n === '999' ? 'Para Llevar' : 'Mesa ' + n;
+        }
+
+        async function openAddItemsModal(saleId) {
+            const sale = allTablesCache.find(s => Number(s.id) === Number(saleId));
+            if (!sale) return;
+            Object.assign(addItemsState, { saleId: Number(saleId), products: [], quantities: new Map(), busy: false });
+            document.getElementById('add-items-subtitle').textContent = `${tableLabel(sale)} · Total actual $${parseFloat(sale.total_amount).toFixed(2)}`;
+            document.getElementById('add-items-search').value = '';
+            document.getElementById('add-items-list').innerHTML = '<div class="flex flex-col items-center justify-center py-10"><div class="loader mb-3"></div><p class="text-xs font-semibold text-slate-600">Cargando productos...</p></div>';
+            updateAddItemsFooter();
+            document.getElementById('add-items-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('add-items-search').focus(), 50);
+            await loadAddItemsProducts();
+        }
+
+        async function loadAddItemsProducts() {
+            try {
+                const res = await fetch('api/products.php');
+                const data = await res.json();
+                if (!res.ok || !Array.isArray(data)) throw new Error((data && data.error) || 'Error');
+                addItemsState.products = data.map(p => ({
+                    id: Number(p.id), name: p.name, category: p.category || '',
+                    price: parseFloat(p.price) || 0, stock: parseInt(p.stock, 10) || 0
+                }));
+                // Drop selections that exceed the refreshed stock
+                addItemsState.quantities.forEach((qty, id) => {
+                    const product = addItemsState.products.find(p => p.id === id);
+                    if (!product || product.stock <= 0) addItemsState.quantities.delete(id);
+                    else if (qty > product.stock) addItemsState.quantities.set(id, product.stock);
+                });
+                renderAddItemsList();
+            } catch (e) {
+                console.error('Could not load products', e);
+                document.getElementById('add-items-list').innerHTML = '<p class="text-center text-rose-700 py-8 text-sm font-semibold">No se pudieron cargar los productos.</p>';
+            }
+        }
+
+        function closeAddItemsModal() {
+            document.getElementById('add-items-modal').classList.add('hidden');
+            addItemsState.saleId = null;
+        }
+
+        function renderAddItemsList() {
+            const list = document.getElementById('add-items-list');
+            const q = document.getElementById('add-items-search').value.trim().toLowerCase();
+            const items = addItemsState.products.filter(p => !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
+            if (items.length === 0) {
+                list.innerHTML = '<p class="text-center text-slate-600 py-8 text-sm font-semibold">No hay productos que coincidan.</p>';
+                updateAddItemsFooter();
+                return;
+            }
+            list.innerHTML = items.map(p => {
+                const qty = addItemsState.quantities.get(p.id) || 0;
+                const name = escapeHtml(p.name);
+                const out = p.stock <= 0;
+                return `
+                    <div class="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-0 ${out ? 'opacity-60' : ''}">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-bold text-slate-800 truncate" title="${name}">${name}</p>
+                            <p class="text-xs text-slate-600 font-semibold">$${p.price.toFixed(2)} · ${out ? 'Agotado' : p.stock + ' disp.'}</p>
+                        </div>
+                        <div class="cart-stepper shrink-0">
+                            <button type="button" data-action="dec" data-id="${p.id}" aria-label="Quitar una unidad de ${name}" ${qty === 0 ? 'disabled' : ''} class="text-slate-600 hover:text-pink-700 disabled:opacity-40">
+                                <i data-lucide="minus" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" value="${qty}" data-id="${p.id}" aria-label="Cantidad de ${name}" ${out ? 'disabled' : ''} class="w-9 text-center text-sm font-black text-slate-800 bg-transparent focus:outline-none focus:ring-2 focus:ring-pink-300 rounded-md">
+                            <button type="button" data-action="inc" data-id="${p.id}" aria-label="Agregar una unidad de ${name}" ${qty >= p.stock ? 'disabled' : ''} class="text-slate-600 hover:text-pink-700 disabled:opacity-40">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>`;
+            }).join('');
+            lucide.createIcons({ root: list });
+            updateAddItemsFooter();
+        }
+
+        // Whole units between 0 and the available stock.
+        function setAddItemQuantity(productId, qty) {
+            const product = addItemsState.products.find(p => p.id === productId);
+            if (!product) return;
+            const clean = Math.max(0, Math.min(product.stock, Math.floor(Number(qty) || 0)));
+            if (clean === 0) addItemsState.quantities.delete(productId);
+            else addItemsState.quantities.set(productId, clean);
+            if (Number(qty) > product.stock) showToast(`Solo hay ${product.stock} disponibles de ${product.name}`, 'error');
+        }
+
+        function updateAddItemsFooter() {
+            let units = 0, total = 0;
+            addItemsState.quantities.forEach((qty, id) => {
+                const product = addItemsState.products.find(p => p.id === id);
+                if (!product) return;
+                units += qty;
+                total += qty * product.price;
+            });
+            document.getElementById('add-items-count').textContent = `${units} ${units === 1 ? 'artículo' : 'artículos'} a agregar`;
+            document.getElementById('add-items-total').textContent = '+$' + total.toFixed(2);
+            document.getElementById('add-items-submit').disabled = units === 0 || addItemsState.busy;
+        }
+
+        async function submitAddItems() {
+            if (addItemsState.busy || !addItemsState.saleId) return;
+            const items = Array.from(addItemsState.quantities, ([id, quantity]) => ({ id, quantity }));
+            if (items.length === 0) return;
+            addItemsState.busy = true;
+            updateAddItemsFooter();
+            try {
+                const res = await fetch('api/sales.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'add_items', id: addItemsState.saleId, items })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    showToast('Productos agregados a la comanda');
+                    closeAddItemsModal();
+                    loadPendingTables();
+                } else {
+                    showToast(data.error || 'No se pudieron agregar los productos', 'error');
+                    if (res.status === 409) {
+                        // Stock changed or the ticket was paid/voided meanwhile
+                        loadPendingTables();
+                        if (data.product_id) await loadAddItemsProducts();
+                        else closeAddItemsModal();
+                    }
+                }
+            } catch (e) {
+                console.error('Add items failed', e);
+                showToast('Error de conexión', 'error');
+            } finally {
+                addItemsState.busy = false;
+                updateAddItemsFooter();
+            }
+        }
+
+        document.getElementById('add-items-search').addEventListener('input', renderAddItemsList);
+        document.getElementById('add-items-list').addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            const id = Number(btn.dataset.id);
+            const current = addItemsState.quantities.get(id) || 0;
+            setAddItemQuantity(id, current + (btn.dataset.action === 'inc' ? 1 : -1));
+            renderAddItemsList();
+        });
+        document.getElementById('add-items-list').addEventListener('change', (e) => {
+            const input = e.target.closest('input[data-id]');
+            if (!input) return;
+            setAddItemQuantity(Number(input.dataset.id), input.value.replace(/\D/g, ''));
+            renderAddItemsList();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !document.getElementById('add-items-modal').classList.contains('hidden')) closeAddItemsModal();
+        });
 
         function openPaymentModal(saleId, total) {
             document.getElementById('pay-sale-id').value = saleId;
@@ -511,7 +720,8 @@
                         </div>`;
                 }).join('');
             document.getElementById('pay-summary-total').textContent = totalText;
-            document.getElementById('pay-summary-count').textContent = `${units} ${units === 1 ? 'artículo' : 'artículos'} · ${totalText}`;
+            // Total repeated only on mobile (collapsed bubble); desktop shows it in the footer
+            document.getElementById('pay-summary-count').innerHTML = `${units} ${units === 1 ? 'artículo' : 'artículos'}<span class="md:hidden"> · ${escapeHtml(totalText)}</span>`;
             summary.classList.add('is-collapsed');
             document.getElementById('pay-summary-toggle').setAttribute('aria-expanded', 'false');
         }

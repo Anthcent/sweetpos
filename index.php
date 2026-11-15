@@ -218,6 +218,9 @@
             <div>
                 <p class="text-[10px] font-extrabold text-slate-400 mb-1.5 uppercase tracking-widest flex items-center gap-1">
                     <i data-lucide="armchair" class="w-3 h-3 text-pink-500"></i> Ubicación / Mesa
+                    <span class="ml-auto inline-flex items-center gap-1 normal-case tracking-normal font-bold text-slate-600" aria-hidden="true">
+                        <span class="w-2 h-2 rounded-full bg-amber-700"></span> Ocupada
+                    </span>
                 </p>
                 <div class="flex flex-wrap gap-1.5 sm:gap-2" id="quick-tables">
                     <!-- JS inyectará botones 1-8 y L -->

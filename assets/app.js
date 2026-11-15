@@ -145,10 +145,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderQuickTables();
         
         // Polling de mesas activas
-        if(activeTablesBar) {
-            fetchActiveTables();
-            activeTablesInterval = setInterval(fetchActiveTables, 10000);
-        }
+        // Polling de mesas activas (tambien mantiene la ocupacion de mesas al dia)
+        fetchActiveTables();
+        activeTablesInterval = setInterval(fetchActiveTables, 10000);
         
         checkoutTriggerBtn?.addEventListener('click', openCheckoutModal);
         processPaymentBtn?.addEventListener('click', () => processCheckout('paid'));
@@ -416,17 +415,82 @@ function renderProducts(items) {
 }
 
 // Mesas Rápidas (Macaron Pills)
+// Dine-in tables with a pending ticket (table_number as string). Take-away
+// orders (999) never occupy a table: several can be pending at once.
+const TAKEOUT_TABLE_NUMBER = '999';
+const OCCUPANCY_REFRESH_MIN_MS = 3000;
+let occupiedTables = new Set();
+let occupancyFetchedAt = 0;
+
+function isTableOccupied(t) {
+    return t !== 'L' && occupiedTables.has(String(t));
+}
+
+function updateTableOccupancy(pendingSales) {
+    occupiedTables = new Set(
+        (Array.isArray(pendingSales) ? pendingSales : [])
+            .map(sale => String(sale.table_number ?? ''))
+            .filter(n => n !== '' && n !== TAKEOUT_TABLE_NUMBER)
+    );
+    occupancyFetchedAt = Date.now();
+    applyTableOccupancy();
+}
+
+async function fetchPendingSales() {
+    const res = await fetch('api/sales.php');
+    const data = await res.json();
+    if(!res.ok || !Array.isArray(data)) throw new Error((data && data.error) || 'Error al consultar mesas');
+    updateTableOccupancy(data);
+    return data;
+}
+
+// Fresh occupancy when the cashier is about to pick a table (throttled).
+async function refreshTableOccupancy(force = false) {
+    if(!force && Date.now() - occupancyFetchedAt < OCCUPANCY_REFRESH_MIN_MS) return;
+    try {
+        await fetchPendingSales();
+    } catch (e) {
+        console.error('Could not refresh table occupancy', e);
+    }
+}
+
+function applyTableOccupancy() {
+    if(!quickTablesContainer) return;
+    quickTablesContainer.querySelectorAll('[data-table]').forEach(btn => {
+        const t = btn.dataset.table;
+        if(t === 'L') return;
+        const occupied = isTableOccupied(t);
+        btn.classList.toggle('is-occupied', occupied);
+        btn.setAttribute('aria-disabled', String(occupied));
+        btn.title = occupied ? `Mesa ${t}: Ocupada` : `Mesa ${t}`;
+        btn.setAttribute('aria-label', occupied ? `Mesa ${t}, ocupada` : `Mesa ${t}`);
+    });
+    // Another cashier took the selected table: drop the selection
+    if(currentTable !== null && isTableOccupied(currentTable)) {
+        const taken = currentTable;
+        clearSelectedTable();
+        showToast(`La mesa ${taken} acaba de ser ocupada. Elige otra mesa.`, 'error');
+    }
+}
+
+function clearSelectedTable() {
+    currentTable = null;
+    if(cartTableInput) cartTableInput.value = '';
+    quickTablesContainer?.querySelectorAll('.macaron-table-btn').forEach(b => b.classList.remove('active'));
+}
+
 function renderQuickTables() {
     if(!quickTablesContainer) return;
     quickTablesContainer.innerHTML = '';
     const tables = [1, 2, 3, 4, 5, 6, 7, 8, 'L'];
-    
+
     tables.forEach(t => {
         const btn = document.createElement('button');
         const isTakeaway = t === 'L';
         btn.type = 'button';
         btn.className = 'macaron-table-btn';
-        
+        btn.dataset.table = String(t);
+
         if (isTakeaway) {
             btn.innerHTML = '<span class="text-xs font-black tracking-tight">Llevar</span>';
             btn.title = 'Para Llevar';
@@ -434,13 +498,25 @@ function renderQuickTables() {
             btn.innerText = t;
             btn.title = `Mesa ${t}`;
         }
-        
+
         btn.addEventListener('click', () => selectQuickTable(t, btn));
         quickTablesContainer.appendChild(btn);
     });
+    applyTableOccupancy();
+
+    // Re-check occupancy as soon as the cashier reaches for the table picker
+    if(!quickTablesContainer.dataset.occupancyHooked) {
+        quickTablesContainer.dataset.occupancyHooked = '1';
+        quickTablesContainer.addEventListener('pointerenter', () => refreshTableOccupancy());
+        quickTablesContainer.addEventListener('focusin', () => refreshTableOccupancy());
+    }
 }
 
 function selectQuickTable(t, btnElement) {
+    if(isTableOccupied(t)) {
+        showToast(`La mesa ${t} está ocupada. Agrega productos desde Zonas de Mesa.`, 'error');
+        return;
+    }
     Array.from(quickTablesContainer.children).forEach(b => {
         b.classList.remove('active');
     });
@@ -494,6 +570,7 @@ function updateQuantity(id, change) {
 // Control del Drawer de Carrito (Tablet y Móvil < 1024px)
 function openMobileCart() {
     document.body.classList.add('cart-drawer-open');
+    refreshTableOccupancy();
     const floatingBtn = document.getElementById('mobile-cart-floating-btn');
     if (floatingBtn) floatingBtn.setAttribute('aria-expanded', 'true');
 }
@@ -636,6 +713,18 @@ function setupClientSearch() {
     clearClientBtn?.addEventListener('click', () => clearClient(true));
 }
 
+// Parses a fetch response as JSON. A non-JSON body (PHP warning, proxy error
+// page, empty body) is logged with a short excerpt and returns null.
+async function readJsonResponse(res) {
+    const text = await res.text();
+    try {
+        return text === '' ? null : JSON.parse(text);
+    } catch (parseError) {
+        console.error(`Non-JSON response from ${res.url} (HTTP ${res.status}):`, text.slice(0, 500));
+        return null;
+    }
+}
+
 function setClientSearchIcon(loading) {
     const icon = checkoutCedula?.parentElement.querySelector('[data-lucide], svg');
     if(!icon) return;
@@ -653,8 +742,12 @@ async function runClientSearch(term) {
     setClientSearchIcon(true);
     try {
         const res = await fetch(`api/clients.php?q=${encodeURIComponent(term)}`, { signal: controller.signal });
-        const data = await res.json();
-        if(!res.ok) throw new Error(data.error || 'Error');
+        const data = await readJsonResponse(res);
+        if(!res.ok || !Array.isArray(data)) {
+            const error = new Error((data && data.error) || `Respuesta inesperada del servidor (HTTP ${res.status}).`);
+            error.userMessage = data && data.error;
+            throw error;
+        }
         // Ignore stale answers: the user kept typing
         if(checkoutCedula.value.trim() !== term) return;
         clientSearchState.term = term;
@@ -662,7 +755,10 @@ async function runClientSearch(term) {
         clientSearchState.activeIndex = clientSearchState.results.length > 0 ? 0 : -1;
         renderClientResults();
     } catch(e) {
-        if(e.name !== 'AbortError') showToast('Error al buscar cliente', 'error');
+        if(e.name !== 'AbortError') {
+            console.error('Client search failed:', e);
+            showToast(e.userMessage || 'Error al buscar cliente', 'error');
+        }
     } finally {
         if(clientSearchState.controller === controller) {
             clientSearchState.controller = null;
@@ -692,7 +788,7 @@ function renderClientResults() {
             <div role="option" id="client-opt-${index}" data-index="${index}" aria-selected="${index === activeIndex}" class="client-result-option">
                 <span class="min-w-0">
                     <span class="block text-sm font-bold truncate">${escapeHtml(client.name)}</span>
-                    <span class="block text-xs font-mono text-slate-600">${escapeHtml(client.cedula_display || FieldRules.formatCedula(client.cedula))}</span>
+                    <span class="block text-xs font-mono text-slate-600">${escapeHtml(client.cedula_display || (window.FieldRules ? FieldRules.formatCedula(client.cedula) : client.cedula))}</span>
                 </span>
                 <i data-lucide="corner-down-left" class="w-4 h-4 text-slate-500 shrink-0"></i>
             </div>`).join('');
@@ -938,13 +1034,21 @@ function renderCheckoutSummary() {
 
     const totalText = '$' + total.toFixed(2);
     checkoutSummaryTotal.textContent = totalText;
-    checkoutSummaryCount.textContent = `${units} ${units === 1 ? 'artículo' : 'artículos'} · ${totalText}`;
+    // The total is repeated only while the bubble is collapsed (mobile); on desktop
+    // the footer already shows it and the long pill wrapped the title.
+    checkoutSummaryCount.innerHTML = `${units} ${units === 1 ? 'artículo' : 'artículos'}<span class="md:hidden"> · ${escapeHtml(totalText)}</span>`;
     modalTotal.innerText = totalText;
 }
 
 // Modal Checkout Logic
-function openCheckoutModal() {
+async function openCheckoutModal() {
     if(cart.length === 0) return;
+    // Re-check the selected table right before checkout (another cashier may
+    // have taken it); applyTableOccupancy() clears it and warns if so.
+    if(currentTable !== null && currentTable !== 'L') {
+        await refreshTableOccupancy(true);
+        if(currentTable === null) return;
+    }
     closeMobileCart();
 
     const tableNum = cartTableInput ? cartTableInput.value.trim() : currentTable;
@@ -956,6 +1060,8 @@ function openCheckoutModal() {
         modalTableInfo.classList.add('hidden');
         sendToTableBtn.classList.add('hidden');
     }
+    // Without "Servir a Mesa" the pay button spans the whole two-column footer
+    processPaymentBtn.classList.toggle('col-span-2', !tableNum);
 
     clearClient();
     checkoutSummary?.classList.add('is-collapsed');
@@ -1051,7 +1157,11 @@ async function processCheckout(status) {
         } else {
             showToast(result.error || 'Error al procesar orden', 'error');
             // El stock pudo cambiar (otra caja vendio el producto): refrescar disponibilidad
-            if (response.status === 409) fetchProducts();
+            if (response.status === 409) {
+                // Mesa ocupada por otra caja: refrescar ocupacion; si no, el stock cambio
+                if (result.table_number) refreshTableOccupancy(true);
+                else fetchProducts();
+            }
         }
     } catch (error) {
         showToast('Error de red al procesar orden', 'error');
@@ -1066,10 +1176,9 @@ async function processCheckout(status) {
    BARRA DE MESAS ACTIVAS (POS)
    ========================================================= */
 async function fetchActiveTables() {
-    if(!activeTablesBar) return;
     try {
-        const res = await fetch('api/sales.php');
-        const pendingSales = await res.json();
+        const pendingSales = await fetchPendingSales();
+        if(!activeTablesBar) return;
         
         if(pendingSales.length === 0) {
             activeTablesBar.classList.add('hidden');

@@ -736,6 +736,36 @@ main > .flex-1.overflow-y-auto {
   transform: translateY(-1px) scale(1.05);
 }
 
+/* Table with a pending ticket: not selectable from the cart */
+.macaron-table-btn.is-occupied {
+  position: relative;
+  cursor: not-allowed;
+  color: #475569;
+  border-style: dashed;
+  border-color: #cbd5e1;
+  background: repeating-linear-gradient(135deg, #f1f5f9 0 6px, #e2e8f0 6px 12px);
+  box-shadow: none;
+}
+
+.macaron-table-btn.is-occupied:hover {
+  transform: none;
+  color: #475569;
+  border-color: #cbd5e1;
+  box-shadow: none;
+}
+
+.macaron-table-btn.is-occupied::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 9999px;
+  background: #b45309;
+  border: 2px solid #ffffff;
+}
+
 /* Cart Ticket Header & Totals */
 #cart-total,
 #modal-total,
