@@ -127,16 +127,12 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TA
                         <h2 id="preview-heading" class="text-sm font-extrabold text-slate-800 flex items-center gap-2">
                             <span class="report-step" aria-hidden="true">3</span>Vista previa
                         </h2>
-                        <p class="mt-1 text-xs text-slate-500">Los archivos se generan con los mismos filtros que ves aquí.</p>
+                        <p class="mt-1 text-xs text-slate-500">El PDF se genera con los mismos filtros que ves aquí.</p>
                     </div>
-                    <div class="grid grid-cols-[auto_1fr_1fr] sm:flex sm:flex-wrap items-center gap-2 shrink-0">
+                    <div class="grid grid-cols-[auto_1fr] sm:flex sm:flex-wrap items-center gap-2 shrink-0">
                         <button id="generate-report" type="button" title="Volver a consultar los datos" aria-label="Actualizar vista previa"
                             class="min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2 transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400">
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i><span class="hidden sm:inline">Actualizar</span>
-                        </button>
-                        <button id="export-excel" type="button" disabled
-                            class="min-h-[44px] rounded-xl bg-emerald-50 px-4 text-sm font-bold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40 flex items-center justify-center gap-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
-                            <i data-lucide="sheet" class="w-4 h-4 shrink-0"></i><span class="sm:hidden">Excel</span><span class="hidden sm:inline">Exportar Excel</span>
                         </button>
                         <button id="export-pdf" type="button" disabled
                             class="min-h-[44px] rounded-xl bg-pink-500 px-4 text-sm font-extrabold text-white hover:bg-pink-600 disabled:cursor-not-allowed disabled:opacity-40 flex items-center justify-center gap-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400">
@@ -172,7 +168,6 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TA
         const result = document.getElementById('report-result');
         const statusBox = document.getElementById('report-status');
         const generateButton = document.getElementById('generate-report');
-        const excelButton = document.getElementById('export-excel');
         const pdfButton = document.getElementById('export-pdf');
 
         const SEARCH_DEBOUNCE_MS = 350;
@@ -465,6 +460,19 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TA
             filtersToggleIcon.style.transform = open ? 'rotate(180deg)' : '';
         }
 
+        // Keeps a custom range valid: a "Desde" later than "Hasta" is swapped
+        // instead of producing a request (and a shareable URL) the API rejects.
+        function normalizeRange() {
+            if (isDate(state.from) && isDate(state.to) && state.from > state.to) {
+                [state.from, state.to] = [state.to, state.from];
+            }
+        }
+
+        // Pending orders have no payment method yet, so that filter cannot apply.
+        function methodApplies() {
+            return state.status !== 'pending';
+        }
+
         function drawFilters() {
             filters.replaceChildren();
             const report = currentReport();
@@ -472,8 +480,8 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TA
                 chipGroup('Período', PERIODS, state.period, (id) => { state.period = id; drawFilters(); loadReport(); });
                 if (state.period === 'custom') {
                     customRow([
-                        inputField('Desde', 'filter-from', 'date', state.from, (value) => { state.from = value; drawFilters(); loadReport(); }),
-                        inputField('Hasta', 'filter-to', 'date', state.to, (value) => { state.to = value; drawFilters(); loadReport(); }),
+                        inputField('Desde', 'filter-from', 'date', state.from, (value) => { state.from = value; normalizeRange(); drawFilters(); loadReport(); }),
+                        inputField('Hasta', 'filter-to', 'date', state.to, (value) => { state.to = value; normalizeRange(); drawFilters(); loadReport(); }),
                     ]);
                 } else {
                     const hint = document.createElement('p');
@@ -486,10 +494,15 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TA
                         (n) => { state.limit = n; drawFilters(); loadReport(); });
                 }
                 if (report.builder) {
-                    chipGroup('Estado', STATUS_OPTIONS, state.status, (id) => { state.status = id; drawFilters(); loadReport(); });
+                    chipGroup('Estado', STATUS_OPTIONS, state.status, (id) => {
+                        state.status = id;
+                        if (!methodApplies()) state.method = '';
+                        drawFilters();
+                        loadReport();
+                    });
                     customRow([
-                        selectField('Método de pago', 'filter-method', [{ id: '', label: 'Todos los métodos' }, ...METHOD_OPTIONS], state.method,
-                            (value) => { state.method = value; updateFiltersSummary(); loadReport(); }),
+                        ...(methodApplies() ? [selectField('Método de pago', 'filter-method', [{ id: '', label: 'Todos los métodos' }, ...METHOD_OPTIONS], state.method,
+                            (value) => { state.method = value; updateFiltersSummary(); loadReport(); })] : []),
                         selectField('Vendedor', 'filter-seller', [{ id: '', label: 'Todos los vendedores' }, ...SELLERS.map((name) => ({ id: name, label: name }))], state.seller,
                             (value) => { state.seller = value; updateFiltersSummary(); loadReport(); }),
                     ]);
@@ -542,7 +555,7 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TA
             if (term) query.set('q', term);
             if (report.builder) {
                 query.set('status', state.status);
-                if (state.method) query.set('payment_method', state.method);
+                if (state.method && methodApplies()) query.set('payment_method', state.method);
                 if (state.seller) query.set('seller', state.seller);
             }
             const sort = serializeSort();
@@ -617,6 +630,8 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TA
             if (STATUS_OPTIONS.some((option) => option.id === status)) state.status = status;
             const method = params.get('payment_method');
             if (METHOD_OPTIONS.some((option) => option.id === method)) state.method = method;
+            if (!methodApplies()) state.method = '';
+            normalizeRange();
             const seller = params.get('seller');
             if (seller) state.seller = seller.slice(0, 100);
             for (const part of (params.get('sort') || '').split(',')) {
@@ -1016,7 +1031,6 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TA
 
         function updateExportButtons() {
             const ready = Boolean(lastQuery) && !activeController && !searchTimer && !exporting;
-            excelButton.disabled = !ready;
             pdfButton.disabled = !ready;
         }
 
@@ -1084,11 +1098,11 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TA
             if (!lastQuery || exporting) return;
             const query = new URLSearchParams(lastQuery);
             query.set('format', format);
-            const button = format === 'pdf' ? pdfButton : excelButton;
+            const button = pdfButton;
             exporting = true;
             button.setAttribute('aria-busy', 'true');
             updateExportButtons();
-            showStatus(format === 'pdf' ? 'Generando el PDF…' : 'Generando el archivo de Excel…', 'loading');
+            showStatus('Generando el PDF…', 'loading');
             try {
                 const response = await fetch('api/report_export.php?' + query.toString());
                 if (!response.ok) {
@@ -1163,7 +1177,6 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TA
         filtersToggle.addEventListener('click', () => setFiltersOpen(filtersBody.dataset.open !== 'true'));
         resetButton.addEventListener('click', resetFilters);
         generateButton.addEventListener('click', () => loadReport());
-        excelButton.addEventListener('click', () => exportReport('excel'));
         pdfButton.addEventListener('click', () => exportReport('pdf'));
         SweetPagination.onBreakpointChange(() => {
             if (lastReportData) render(lastReportData);
