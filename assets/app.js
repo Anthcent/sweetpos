@@ -1,4 +1,4 @@
-// assets/app.js — Sweet POS Application Logic with Enhanced Pastel Aesthetics
+// assets/app.js — YILMANU POS Application Logic with Enhanced Pastel Aesthetics
 
 // Estado global
 let products = [];

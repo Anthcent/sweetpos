@@ -61,7 +61,7 @@ function reportBuildPdfDocument(array $data): array {
 }
 
 function reportBuildWorkbookSheets(array $data): array {
-    $summary = [['Indicador', 'Valor'], ['Negocio', $data['business_name'] ?? 'Sweet POS'], ['Reporte', $data['title']], ['Período', $data['period_label']], ['Generado', $data['generated_at']]];
+    $summary = [['Indicador', 'Valor'], ['Negocio', $data['business_name'] ?? 'YILMANU POS'], ['Reporte', $data['title']], ['Período', $data['period_label']], ['Generado', $data['generated_at']]];
     foreach ($data['metrics'] as $metric) $summary[] = [$metric['label'], $metric['value']];
     $sheets = ['Resumen' => $summary];
     foreach ($data['tables'] as $index => $table) {

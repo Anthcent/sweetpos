@@ -9,11 +9,11 @@ require_once __DIR__ . '/fpdf/fpdf.php';
 // never prevents a PDF from being generated.
 function pdfBusinessConfig(): array {
     $defaults = [
-        'name'      => 'Sweet POS',
+        'name'      => 'YILMANU POS',
         'rif'       => '',
         'address'   => '',
         'phone'     => '',
-        'logo_path' => 'assets/ice_cream_branding.png',
+        'logo_path' => 'assets/yilmanu_logo.png',
         'timezone'  => 'America/Caracas',
         'currency'  => '$',
     ];
@@ -123,7 +123,7 @@ class SweetPdf extends FPDF {
         $this->AliasNbPages('{nb}');
         $this->SetTitle(pdfText($title . ($subtitle !== '' ? ' ' . $subtitle : '')));
         $this->SetAuthor(pdfText($this->business['name']));
-        $this->SetCreator('Sweet POS');
+        $this->SetCreator('YILMANU POS');
     }
 
     public function setWatermark(string $text): void {

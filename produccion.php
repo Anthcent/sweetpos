@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elaboración de Productos - Sweet POS</title>
+    <title>Elaboración de Productos - YILMANU POS</title>
     <script src="assets/tailwindcss.js"></script>
     <link rel="stylesheet" href="assets/style.css">
     <script src="assets/lucide.min.js"></script>

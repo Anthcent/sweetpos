@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sweet POS - Iniciar Sesión</title>
+    <title>YILMANU POS - Iniciar Sesión</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800;900&family=Nunito:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&family=Titan+One&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="assets/lucide.min.js"></script>
     <style>
         :root {
-            /* Paleta Rosada Vibrante & Deliciosa Sweet POS */
+            /* Paleta Rosada Vibrante & Deliciosa YILMANU POS */
             --pink-vibrant: #FF4D80;
             --pink-main: #ED2866;
             --pink-deep: #D41450;
@@ -247,7 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         /* =========================================================
            SPLASH DE BIENVENIDA — SOLO CELULARES
-           Muestra Sweet POS y luego lleva el formulario a la vista.
+           Muestra YILMANU POS y luego lleva el formulario a la vista.
            ========================================================= */
         .mobile-login-splash {
             display: none;
@@ -641,121 +641,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <!-- CONTENIDO CENTRAL: TÍTULO, CONO Y LEMA (Equilibrado y centrado) -->
             <div class="login-hero-content flex flex-col items-center text-center z-20 my-auto pt-12 sm:pt-16">
 
-                <!-- Logo Sweet POS -->
+                <!-- Logo YILMANU POS -->
                 <div class="mb-3 sm:mb-5">
                     <h1 class="sweet-brand-title text-4xl sm:text-5xl md:text-6xl tracking-tight">
-                        Sweet POS
+                        YILMANU POS
                     </h1>
                 </div>
 
-                <!-- Ilustración Vectorial del Cono de Helado Artesanal -->
-                <div class="relative w-36 h-48 sm:w-44 sm:h-56 my-2 animate-float">
-                    <!-- Destellos y estrellitas mágicas alrededor -->
-                    <div class="absolute -top-1 left-5 text-white text-xl animate-twinkle">✦</div>
-                    <div class="absolute top-10 right-3 text-pink-100 text-sm animate-twinkle" style="animation-delay: 1.2s;">✧</div>
-                    <div class="absolute top-20 -left-2 text-amber-100 text-base animate-twinkle" style="animation-delay: 0.6s;">✦</div>
-
-                    <svg viewBox="0 0 160 220" class="w-full h-full drop-shadow-[0_12px_24px_rgba(50,15,25,0.35)]" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <defs>
-                            <!-- Gradiente de Helado Suave Fresa Artesanal -->
-                            <linearGradient id="iceCreamSwirlGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stop-color="#FFFFFF"/>
-                                <stop offset="40%" stop-color="#FFD6E2"/>
-                                <stop offset="100%" stop-color="#FF9EBA"/>
-                            </linearGradient>
-
-                            <!-- Gradiente de Barquillo Waffle -->
-                            <linearGradient id="waffleConeGrad" x1="0%" y1="0%" x2="100%" y2="50%">
-                                <stop offset="0%" stop-color="#F1B66D"/>
-                                <stop offset="50%" stop-color="#E59E52"/>
-                                <stop offset="100%" stop-color="#C7782A"/>
-                            </linearGradient>
-
-                            <!-- Clip path para el barquillo -->
-                            <clipPath id="coneClip">
-                                <path d="M 44,120 L 116,120 L 80,210 Z"/>
-                            </clipPath>
-                        </defs>
-
-                        <!-- Sombra suave debajo del cono -->
-                        <ellipse cx="80" cy="214" rx="28" ry="5" fill="#3A1B14" opacity="0.3" filter="blur(3px)" />
-
-                        <!-- BARQUILLO / WAFFLE CONE -->
-                        <!-- Cuerpo triangular del cono -->
-                        <path d="M 44,120 L 116,120 L 80,210 Z" fill="url(#waffleConeGrad)" stroke="#3A1B14" stroke-width="2.5" stroke-linejoin="round"/>
-
-                        <!-- Cuadrícula waffle dentro del clip -->
-                        <g clip-path="url(#coneClip)" stroke="#A65818" stroke-width="1.8" opacity="0.75">
-                            <line x1="30" y1="110" x2="120" y2="200" />
-                            <line x1="45" y1="110" x2="120" y2="185" />
-                            <line x1="60" y1="110" x2="120" y2="170" />
-                            <line x1="75" y1="110" x2="120" y2="155" />
-                            <line x1="20" y1="125" x2="105" y2="210" />
-                            <line x1="20" y1="140" x2="90" y2="210" />
-                            <line x1="20" y1="155" x2="75" y2="210" />
-
-                            <line x1="130" y1="110" x2="40" y2="200" />
-                            <line x1="115" y1="110" x2="40" y2="185" />
-                            <line x1="100" y1="110" x2="40" y2="170" />
-                            <line x1="85" y1="110" x2="40" y2="155" />
-                            <line x1="140" y1="125" x2="55" y2="210" />
-                            <line x1="140" y1="140" x2="70" y2="210" />
-                            <line x1="140" y1="155" x2="85" y2="210" />
-                        </g>
-
-                        <!-- Borde superior del cono (anillo) -->
-                        <path d="M 40,118 C 40,115 42,113 46,113 L 114,113 C 118,113 120,115 120,118 C 120,121 118,123 114,123 L 46,123 C 42,123 40,121 40,118 Z"
-                              fill="#EDAB63" stroke="#3A1B14" stroke-width="2.5" />
-
-                        <!-- HELADO SUAVE (SWIRL DE FRESA ARTESANAL ROSADO VIBRANTE) -->
-                        <!-- Capa Base 3 (inferior) -->
-                        <path d="M 44,116
-                                 C 32,116 30,95 44,92
-                                 C 52,90 60,94 72,94
-                                 C 88,94 96,88 108,92
-                                 C 124,95 128,116 116,116
-                                 C 106,120 54,120 44,116 Z"
-                              fill="url(#iceCreamSwirlGrad)" stroke="#3A1B14" stroke-width="2.5" stroke-linejoin="round" />
-
-                        <!-- Capa Media 2 -->
-                        <path d="M 48,93
-                                 C 38,90 38,72 52,70
-                                 C 62,68 70,72 82,72
-                                 C 96,72 104,66 114,72
-                                 C 124,78 120,93 108,93
-                                 C 92,94 62,95 48,93 Z"
-                              fill="url(#iceCreamSwirlGrad)" stroke="#3A1B14" stroke-width="2.5" stroke-linejoin="round" />
-
-                        <!-- Capa Superior 1 con el Pico Curvado -->
-                        <path d="M 58,70
-                                 C 50,68 54,48 68,44
-                                 C 76,40 84,32 82,24
-                                 C 81,18 76,20 74,22
-                                 C 72,24 68,26 68,22
-                                 C 68,16 78,12 86,16
-                                 C 94,20 98,34 94,44
-                                 C 104,50 108,68 96,70
-                                 C 86,72 68,72 58,70 Z"
-                              fill="url(#iceCreamSwirlGrad)" stroke="#3A1B14" stroke-width="2.5" stroke-linejoin="round" />
-
-                        <!-- Líneas de pliegue y volumen en rosa vibrante -->
-                        <path d="M 52,86 C 64,88 85,86 102,84" stroke="#ED2866" stroke-width="2.2" stroke-linecap="round" fill="none" />
-                        <path d="M 60,64 C 70,66 84,65 96,62" stroke="#ED2866" stroke-width="2.2" stroke-linecap="round" fill="none" />
-                        <path d="M 72,42 C 78,44 86,43 92,38" stroke="#ED2866" stroke-width="2.2" stroke-linecap="round" fill="none" />
-
-                        <!-- Brillos de luz blanca en el helado -->
-                        <path d="M 44,98 C 42,94 44,88 48,87" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" fill="none" />
-                        <path d="M 54,74 C 52,70 54,66 58,65" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" fill="none" />
-                        <path d="M 72,28 C 76,28 80,32 80,36" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" fill="none" />
-
-                        <!-- Chispitas en el helado -->
-                        <rect x="55" y="96" width="6" height="2.5" rx="1.2" fill="#58D3E6" transform="rotate(20 55 96)" />
-                        <rect x="75" y="102" width="6" height="2.5" rx="1.2" fill="#FFD152" transform="rotate(-30 75 102)" />
-                        <rect x="98" y="98" width="6" height="2.5" rx="1.2" fill="#FFFFFF" transform="rotate(45 98 98)" />
-                        <rect x="65" y="74" width="6" height="2.5" rx="1.2" fill="#FFFFFF" transform="rotate(-15 65 74)" />
-                        <rect x="88" y="76" width="6" height="2.5" rx="1.2" fill="#58D3E6" transform="rotate(35 88 76)" />
-                        <rect x="78" y="52" width="5" height="2" rx="1" fill="#FFD152" transform="rotate(-25 78 52)" />
-                    </svg>
+                <!-- Logo YILMANU -->
+                <div class="relative w-44 h-44 sm:w-56 sm:h-56 my-2 animate-float">
+                    <img src="assets/yilmanu_logo.png" alt="YILMANU - Future Frozen Treats" class="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(50,15,25,0.35)]">
                 </div>
 
                 <!-- Lema y Pastilla de Helados Artesanales -->
@@ -951,7 +846,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <i data-lucide="info" class="w-5 h-5"></i>
                 </div>
                 <div>
-                    <h3 class="text-lg font-black text-[#251d22] font-heading">Sweet POS Terminal</h3>
+                    <h3 class="text-lg font-black text-[#251d22] font-heading">YILMANU POS Terminal</h3>
                     <p class="text-xs text-[#6c5f68] font-semibold">Información del Sistema</p>
                 </div>
             </div>

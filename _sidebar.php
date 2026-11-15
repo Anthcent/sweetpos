@@ -22,8 +22,8 @@ if (canAccess('usuarios')) $mobileSheetModules[] = ['usuarios.php', 'users', 'Us
 
     <!-- Logo de la heladería / dulcería -->
     <div class="sidebar-brand-wrapper mb-6">
-        <a href="index.php" title="Sweet POS - Inicio" class="sidebar-brand w-12 h-12 rounded-2xl flex items-center justify-center overflow-hidden block">
-            <img src="assets/ice_cream_branding.png" alt="Sweet POS" class="w-full h-full object-cover">
+        <a href="index.php" title="YILMANU POS - Inicio" class="sidebar-brand w-12 h-12 rounded-2xl flex items-center justify-center overflow-hidden block">
+            <img src="assets/yilmanu_logo.png" alt="YILMANU POS" class="w-full h-full object-cover">
         </a>
     </div>
 

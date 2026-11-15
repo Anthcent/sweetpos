@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de decisiones - Sweet POS</title>
+    <title>Panel de decisiones - YILMANU POS</title>
     <script src="assets/tailwindcss.js"></script>
     <link rel="stylesheet" href="assets/style.css">
     <script src="assets/lucide.min.js"></script>

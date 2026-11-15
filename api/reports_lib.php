@@ -1429,6 +1429,6 @@ function reportBuildData(PDO $pdo, string $type, array $filters): array {
     $data['slug'] = $catalog[$type]['slug'];
     $data['pdf_title'] = $catalog[$type]['pdf'];
     $data['currency'] = (string)($config['currency'] ?? '$');
-    $data['business_name'] = (string)($config['name'] ?? 'Sweet POS');
+    $data['business_name'] = (string)($config['name'] ?? 'YILMANU POS');
     return $data;
 }
