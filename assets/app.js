@@ -38,16 +38,28 @@ const posPayTableName = document.getElementById('pos-pay-table-name');
 const posReferenceFieldContainer = document.getElementById('pos-reference-field-container');
 const posPaymentReference = document.getElementById('pos-payment-reference');
 
-// DOM Clientes (Floating Panel)
+// DOM Clientes (busqueda rapida en el cobro)
 const checkoutCedula = document.getElementById('checkout-cedula');
 const activeClientId = document.getElementById('active-client-id');
-const floatingClientPanel = document.getElementById('floating-client-panel');
+const clientSearchBlock = document.getElementById('checkout-client-search');
+const clientResultsBox = document.getElementById('client-results');
 const fastClientBtn = document.getElementById('fast-client-btn');
-const registerFloatingBtn = document.getElementById('register-floating-btn');
-const clientFoundCard = document.getElementById('client-found-card');
+const registerClientBtn = document.getElementById('register-client-btn');
+const clientSelectedChip = document.getElementById('client-selected');
 const clientNameDisplay = document.getElementById('client-name-display');
 const clientCedulaDisplay = document.getElementById('client-cedula-display');
 const clearClientBtn = document.getElementById('clear-client-btn');
+const clientModal = document.getElementById('client-modal');
+
+// DOM Resumen del pedido (burbuja del cobro)
+const checkoutSummary = document.getElementById('checkout-summary');
+const checkoutSummaryToggle = document.getElementById('checkout-summary-toggle');
+const checkoutSummaryList = document.getElementById('checkout-summary-list');
+const checkoutSummaryCount = document.getElementById('checkout-summary-count');
+const checkoutSummaryTotal = document.getElementById('checkout-summary-total');
+
+const CLIENT_SEARCH_DEBOUNCE_MS = 200;
+const clientSearchState = { results: [], activeIndex: -1, term: '', controller: null, open: false };
 
 const referenceFieldContainer = document.getElementById('reference-field-container');
 const paymentReference = document.getElementById('payment-reference');
@@ -142,37 +154,8 @@ document.addEventListener('DOMContentLoaded', () => {
         processPaymentBtn?.addEventListener('click', () => processCheckout('paid'));
         sendToTableBtn?.addEventListener('click', () => processCheckout('pending'));
         
-        // Búsqueda automática de clientes con Debounce
-        checkoutCedula?.addEventListener('input', (e) => {
-            clearTimeout(searchTimeout);
-            const val = e.target.value.trim();
-            if(val === '') {
-                resetFloatingPanelState();
-                return;
-            }
-            if(val.toLowerCase() === 'cliente rápido' || val.toLowerCase() === 'cliente rapido') {
-                hideFloatingPanel();
-                activeClientId.value = '';
-                return;
-            }
-            
-            const icon = checkoutCedula.parentElement.querySelector('i');
-            if(icon) {
-                icon.setAttribute('data-lucide', 'loader-2');
-                icon.classList.add('animate-spin');
-                if(window.lucide) window.lucide.createIcons({ root: checkoutCedula.parentElement });
-            }
-            
-            searchTimeout = setTimeout(() => searchClient(val), 550);
-        });
-        
-        clearClientBtn?.addEventListener('click', clearClient);
-        
-        fastClientBtn?.addEventListener('click', () => {
-            checkoutCedula.value = 'Cliente Rápido';
-            activeClientId.value = '';
-            hideFloatingPanel();
-        });
+        setupClientSearch();
+        setupCheckoutSummary();
         
         if(clientForm) {
             clientForm.addEventListener('submit', registerClient);
@@ -608,85 +591,268 @@ function renderCart() {
         }
     }
     cartTotalEl.innerText = '$' + total.toFixed(2);
+    renderCheckoutSummary();
 }
 
-// Lógica de Floating Panel
-function showFloatingPanel() {
-    floatingClientPanel.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
-    floatingClientPanel.classList.add('opacity-100', 'scale-100');
-}
-function hideFloatingPanel() {
-    floatingClientPanel.classList.remove('opacity-100', 'scale-100');
-    floatingClientPanel.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+function removeFromCart(id) {
+    cart = cart.filter(item => item.id !== id);
+    renderCart();
 }
 
-function resetFloatingPanelState() {
-    const icon = checkoutCedula.parentElement.querySelector('i');
-    if(icon) {
-        icon.setAttribute('data-lucide', 'search');
-        icon.classList.remove('animate-spin');
-        if(window.lucide) window.lucide.createIcons({ root: checkoutCedula.parentElement });
-    }
-    
-    if(checkoutCedula.value.trim() === '') {
-        fastClientBtn.classList.remove('hidden');
-        registerFloatingBtn.classList.add('hidden');
-        clientFoundCard.classList.add('hidden');
-        showFloatingPanel();
-    }
-    activeClientId.value = '';
+/* =========================================================
+   CLIENTE EN EL COBRO: busqueda por cedula o nombre + registro rapido
+   ========================================================= */
+function setupClientSearch() {
+    if(!checkoutCedula) return;
+
+    checkoutCedula.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        const term = checkoutCedula.value.trim();
+        if(term === '') {
+            clientSearchState.controller?.abort();
+            closeClientResults();
+            registerClientBtn?.classList.add('hidden');
+            return;
+        }
+        searchTimeout = setTimeout(() => runClientSearch(term), CLIENT_SEARCH_DEBOUNCE_MS);
+    });
+
+    checkoutCedula.addEventListener('keydown', handleClientSearchKeys);
+    checkoutCedula.addEventListener('blur', () => setTimeout(closeClientResults, 150));
+    checkoutCedula.addEventListener('focus', () => {
+        if(checkoutCedula.value.trim() !== '' && clientSearchState.term === checkoutCedula.value.trim()) {
+            openClientResults();
+        }
+    });
+
+    clientResultsBox?.addEventListener('mousedown', (e) => e.preventDefault()); // keep focus on the input
+    clientResultsBox?.addEventListener('click', (e) => {
+        const option = e.target.closest('[data-index]');
+        if(option) pickClientOption(Number(option.dataset.index));
+    });
+
+    fastClientBtn?.addEventListener('click', useAnonymousClient);
+    registerClientBtn?.addEventListener('click', () => openClientRegister(checkoutCedula.value));
+    clearClientBtn?.addEventListener('click', () => clearClient(true));
 }
 
-async function searchClient(cedula) {
+function setClientSearchIcon(loading) {
+    const icon = checkoutCedula?.parentElement.querySelector('[data-lucide], svg');
+    if(!icon) return;
+    const fresh = document.createElement('i');
+    fresh.setAttribute('data-lucide', loading ? 'loader-2' : 'search');
+    fresh.className = 'w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none' + (loading ? ' animate-spin' : '');
+    icon.replaceWith(fresh);
+    if(window.lucide) window.lucide.createIcons({ root: checkoutCedula.parentElement });
+}
+
+async function runClientSearch(term) {
+    clientSearchState.controller?.abort();
+    const controller = new AbortController();
+    clientSearchState.controller = controller;
+    setClientSearchIcon(true);
     try {
-        const res = await fetch(`api/clients.php?cedula=${encodeURIComponent(cedula)}`);
-        const client = await res.json();
-        
-        if(res.ok) {
-            fastClientBtn.classList.add('hidden');
-            registerFloatingBtn.classList.add('hidden');
-            clientFoundCard.classList.remove('hidden');
-            
-            clientNameDisplay.innerText = client.name;
-            clientCedulaDisplay.innerText = `V-${client.cedula}`;
-            activeClientId.value = client.id;
-        } else {
-            fastClientBtn.classList.remove('hidden');
-            registerFloatingBtn.classList.remove('hidden');
-            clientFoundCard.classList.add('hidden');
-            activeClientId.value = '';
-        }
-        showFloatingPanel();
+        const res = await fetch(`api/clients.php?q=${encodeURIComponent(term)}`, { signal: controller.signal });
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || 'Error');
+        // Ignore stale answers: the user kept typing
+        if(checkoutCedula.value.trim() !== term) return;
+        clientSearchState.term = term;
+        clientSearchState.results = Array.isArray(data) ? data : [];
+        clientSearchState.activeIndex = clientSearchState.results.length > 0 ? 0 : -1;
+        renderClientResults();
     } catch(e) {
-        showToast('Error al buscar cliente', 'error');
+        if(e.name !== 'AbortError') showToast('Error al buscar cliente', 'error');
     } finally {
-        const icon = checkoutCedula.parentElement.querySelector('i');
-        if(icon) {
-            icon.setAttribute('data-lucide', 'search');
-            icon.classList.remove('animate-spin');
-            if(window.lucide) window.lucide.createIcons({ root: checkoutCedula.parentElement });
+        if(clientSearchState.controller === controller) {
+            clientSearchState.controller = null;
+            setClientSearchIcon(false);
         }
     }
 }
 
-function clearClient() {
-    checkoutCedula.value = '';
-    resetFloatingPanelState();
-    checkoutCedula.focus();
+function renderClientResults() {
+    if(!clientResultsBox) return;
+    const { results, activeIndex, term } = clientSearchState;
+    const hasResults = results.length > 0;
+    registerClientBtn?.classList.toggle('hidden', hasResults);
+
+    if(!hasResults) {
+        clientResultsBox.innerHTML = `
+            <p class="client-result-empty">Sin coincidencias para «${escapeHtml(term)}».</p>
+            <div role="option" id="client-opt-new" data-index="0" aria-selected="true" class="client-result-option">
+                <span class="flex items-center gap-2 text-sm font-bold text-pink-800">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i> Registrar nuevo cliente
+                </span>
+                <span class="text-[10px] font-bold text-slate-600 uppercase">Enter</span>
+            </div>`;
+        checkoutCedula.setAttribute('aria-activedescendant', 'client-opt-new');
+    } else {
+        clientResultsBox.innerHTML = results.map((client, index) => `
+            <div role="option" id="client-opt-${index}" data-index="${index}" aria-selected="${index === activeIndex}" class="client-result-option">
+                <span class="min-w-0">
+                    <span class="block text-sm font-bold truncate">${escapeHtml(client.name)}</span>
+                    <span class="block text-xs font-mono text-slate-600">${escapeHtml(client.cedula_display || FieldRules.formatCedula(client.cedula))}</span>
+                </span>
+                <i data-lucide="corner-down-left" class="w-4 h-4 text-slate-500 shrink-0"></i>
+            </div>`).join('');
+        checkoutCedula.setAttribute('aria-activedescendant', `client-opt-${activeIndex}`);
+    }
+    if(window.lucide) window.lucide.createIcons({ root: clientResultsBox });
+    openClientResults();
 }
+
+function openClientResults() {
+    if(!clientResultsBox || clientResultsBox.innerHTML.trim() === '') return;
+    clientResultsBox.classList.remove('hidden');
+    checkoutCedula.setAttribute('aria-expanded', 'true');
+    clientSearchState.open = true;
+}
+
+function closeClientResults() {
+    if(!clientResultsBox) return;
+    clientResultsBox.classList.add('hidden');
+    checkoutCedula?.setAttribute('aria-expanded', 'false');
+    checkoutCedula?.removeAttribute('aria-activedescendant');
+    clientSearchState.open = false;
+}
+
+function moveClientHighlight(step) {
+    const count = clientSearchState.results.length;
+    if(count === 0) return;
+    clientSearchState.activeIndex = (clientSearchState.activeIndex + step + count) % count;
+    clientResultsBox.querySelectorAll('[role="option"]').forEach((option, index) => {
+        option.setAttribute('aria-selected', String(index === clientSearchState.activeIndex));
+        if(index === clientSearchState.activeIndex) option.scrollIntoView({ block: 'nearest' });
+    });
+    checkoutCedula.setAttribute('aria-activedescendant', `client-opt-${clientSearchState.activeIndex}`);
+}
+
+function handleClientSearchKeys(e) {
+    const term = checkoutCedula.value.trim();
+    if(e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if(!clientSearchState.open) openClientResults();
+        moveClientHighlight(e.key === 'ArrowDown' ? 1 : -1);
+    } else if(e.key === 'Enter') {
+        e.preventDefault();
+        if(term === '') return;
+        // Results may still be loading: search now and decide with fresh data
+        if(clientSearchState.term !== term || clientSearchState.controller) {
+            clearTimeout(searchTimeout);
+            runClientSearch(term).then(() => {
+                if(clientSearchState.term === term) pickClientOption(clientSearchState.activeIndex);
+            });
+            return;
+        }
+        pickClientOption(clientSearchState.activeIndex);
+    } else if(e.key === 'Escape' && clientSearchState.open) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeClientResults();
+    }
+}
+
+function pickClientOption(index) {
+    const { results, term } = clientSearchState;
+    if(results.length === 0) {
+        openClientRegister(term);
+    } else if(results[index]) {
+        selectClient(results[index]);
+    }
+}
+
+function showClientChip(name, detail, anonymous) {
+    clientNameDisplay.textContent = name;
+    clientCedulaDisplay.textContent = detail;
+    clientSelectedChip.classList.toggle('is-anonymous', anonymous);
+    const icon = clientSelectedChip.querySelector('[data-lucide], svg');
+    if(icon) {
+        const fresh = document.createElement('i');
+        fresh.setAttribute('data-lucide', anonymous ? 'zap' : 'user-check');
+        fresh.className = 'w-5 h-5';
+        icon.replaceWith(fresh);
+        if(window.lucide) window.lucide.createIcons({ root: clientSelectedChip });
+    }
+    clientSearchBlock.classList.add('hidden');
+    clientSelectedChip.classList.remove('hidden');
+    closeClientResults();
+}
+
+function selectClient(client) {
+    activeClientId.value = client.id;
+    showClientChip(client.name, client.cedula_display || FieldRules.formatCedula(client.cedula), false);
+    processPaymentBtn?.focus();
+}
+
+function useAnonymousClient() {
+    activeClientId.value = '';
+    showClientChip('Cliente rápido', 'Venta sin registro de cliente', true);
+    processPaymentBtn?.focus();
+}
+
+// Back to the search step. focus=true when the cashier asked to change the client.
+function clearClient(focus = false) {
+    clearTimeout(searchTimeout);
+    clientSearchState.controller?.abort();
+    Object.assign(clientSearchState, { results: [], activeIndex: -1, term: '', controller: null });
+    activeClientId.value = '';
+    checkoutCedula.value = '';
+    if(clientResultsBox) clientResultsBox.innerHTML = '';
+    closeClientResults();
+    registerClientBtn?.classList.add('hidden');
+    clientSelectedChip.classList.add('hidden');
+    clientSearchBlock.classList.remove('hidden');
+    if(focus) checkoutCedula.focus();
+}
+
+// Opens the quick-register form pre-filled with what the cashier typed.
+function openClientRegister(term = '') {
+    if(!clientModal || !clientForm) return;
+    clientForm.reset();
+    FieldRules.reset(clientForm);
+    const cedulaInput = document.getElementById('c-cedula');
+    const nameInput = document.getElementById('c-name');
+    const clean = String(term).trim();
+    let focusTarget = cedulaInput;
+    if(clean !== '' && FieldRules.looksLikeCedula(clean)) {
+        cedulaInput.value = FieldRules.RULES.cedula.filter(clean);
+        focusTarget = nameInput;
+    } else if(clean !== '') {
+        nameInput.value = FieldRules.RULES.name.filter(clean).trim();
+        focusTarget = cedulaInput;
+    }
+    closeClientResults();
+    clientModal.classList.remove('hidden');
+    setTimeout(() => focusTarget.focus(), 30);
+}
+
+function closeClientModal() {
+    if(!clientModal) return;
+    clientModal.classList.add('hidden');
+    if(!checkoutModal.classList.contains('hidden') && !clientSearchBlock.classList.contains('hidden')) {
+        checkoutCedula.focus();
+    }
+}
+window.openClientRegister = openClientRegister;
+window.closeClientModal = closeClientModal;
 
 async function registerClient(e) {
     e.preventDefault();
-    const btn = e.target.querySelector('button[type="submit"]');
+    if(!FieldRules.validateForm(clientForm)) return;
+
+    const btn = clientForm.querySelector('button[type="submit"]');
     const originalText = btn.innerHTML;
     btn.innerHTML = '<div class="loader inline-block border-2 mr-2"></div> Guardando...';
-    
+    btn.disabled = true;
+
     const payload = {
         cedula: document.getElementById('c-cedula').value.trim(),
         name: document.getElementById('c-name').value.trim(),
         phone: document.getElementById('c-phone').value.trim()
     };
-    
+    const inCheckout = !checkoutModal.classList.contains('hidden');
+
     try {
         const res = await fetch('api/clients.php', {
             method: 'POST',
@@ -694,33 +860,93 @@ async function registerClient(e) {
             body: JSON.stringify(payload)
         });
         const result = await res.json();
-        
+
         if(res.ok) {
             showToast('Cliente registrado con éxito');
-            document.getElementById('client-modal').classList.add('hidden');
-            e.target.reset();
-            if(!checkoutModal.classList.contains('hidden')) {
-                checkoutCedula.value = payload.cedula;
-                searchClient(payload.cedula);
-            }
+            clientModal.classList.add('hidden');
+            clientForm.reset();
+            if(inCheckout && result.client) selectClient(result.client);
+        } else if(res.status === 409 && result.client && inCheckout) {
+            // Already registered: use the existing client instead of blocking the sale
+            showToast(`${result.error} Se seleccionó para esta orden.`);
+            clientModal.classList.add('hidden');
+            selectClient(result.client);
         } else {
-            showToast(result.error || 'Error', 'error');
+            showToast(result.error || 'Error al registrar el cliente', 'error');
         }
     } catch(err) {
         showToast('Error de red', 'error');
     } finally {
         btn.innerHTML = originalText;
+        btn.disabled = false;
     }
+}
+
+/* =========================================================
+   RESUMEN DEL PEDIDO EN EL COBRO (burbuja)
+   ========================================================= */
+function setupCheckoutSummary() {
+    checkoutSummaryToggle?.addEventListener('click', () => {
+        const collapsed = checkoutSummary.classList.toggle('is-collapsed');
+        checkoutSummaryToggle.setAttribute('aria-expanded', String(!collapsed));
+    });
+
+    checkoutSummaryList?.addEventListener('click', (e) => {
+        const button = e.target.closest('button[data-action]');
+        if(!button) return;
+        const id = Number(button.dataset.id);
+        const action = button.dataset.action;
+        if(action === 'dec') updateQuantity(id, -1);
+        else if(action === 'inc') updateQuantity(id, 1);
+        else if(action === 'remove') removeFromCart(id);
+
+        if(cart.length === 0) {
+            closeCheckoutModal();
+            showToast('La orden quedó vacía. Agrega productos para cobrar.');
+            if(window.matchMedia('(max-width: 1023px)').matches) openMobileCart();
+        }
+    });
+}
+
+function isCheckoutOpen() {
+    return checkoutModal && !checkoutModal.classList.contains('hidden');
+}
+
+// Re-renders the order bubble and every total shown in the checkout from `cart`.
+function renderCheckoutSummary() {
+    if(!checkoutSummaryList || !isCheckoutOpen()) return;
+    const total = cart.reduce((acc, item) => acc + item.subtotal, 0);
+    const units = cart.reduce((acc, item) => acc + item.quantity, 0);
+
+    checkoutSummaryList.innerHTML = cart.map(item => {
+        const product = products.find(p => p.id === item.id);
+        const atMax = product ? item.quantity >= product.stock : true;
+        const name = escapeHtml(item.name);
+        return `
+            <div class="order-summary-line">
+                <span class="text-sm font-bold text-slate-800 leading-snug min-w-0 truncate" title="${name}">${name}</span>
+                <span class="text-sm font-black text-slate-900 font-heading text-right">$${item.subtotal.toFixed(2)}</span>
+                <span class="text-xs text-slate-600 font-semibold">${item.quantity} × $${item.price.toFixed(2)}</span>
+                <span class="order-summary-actions justify-end">
+                    <button type="button" data-action="dec" data-id="${item.id}" aria-label="Quitar una unidad de ${name}" title="Quitar una unidad"><i data-lucide="minus" class="w-3.5 h-3.5"></i></button>
+                    <button type="button" data-action="inc" data-id="${item.id}" aria-label="Agregar una unidad de ${name}" title="Agregar una unidad" ${atMax ? 'disabled' : ''}><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>
+                    <button type="button" data-action="remove" data-id="${item.id}" class="danger" aria-label="Eliminar ${name} de la orden" title="Eliminar del pedido"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                </span>
+            </div>`;
+    }).join('');
+    if(window.lucide) window.lucide.createIcons({ root: checkoutSummaryList });
+
+    const totalText = '$' + total.toFixed(2);
+    checkoutSummaryTotal.textContent = totalText;
+    checkoutSummaryCount.textContent = `${units} ${units === 1 ? 'artículo' : 'artículos'} · ${totalText}`;
+    modalTotal.innerText = totalText;
 }
 
 // Modal Checkout Logic
 function openCheckoutModal() {
     if(cart.length === 0) return;
     closeMobileCart();
-    
-    let total = cart.reduce((acc, item) => acc + item.subtotal, 0);
-    modalTotal.innerText = '$' + total.toFixed(2);
-    
+
     const tableNum = cartTableInput ? cartTableInput.value.trim() : currentTable;
     if(tableNum) {
         modalTableNumDisplay.innerText = tableNum;
@@ -730,23 +956,30 @@ function openCheckoutModal() {
         modalTableInfo.classList.add('hidden');
         sendToTableBtn.classList.add('hidden');
     }
-    
+
+    clearClient();
+    checkoutSummary?.classList.add('is-collapsed');
+    checkoutSummaryToggle?.setAttribute('aria-expanded', 'false');
     checkoutModal.classList.remove('hidden');
-    
-    setTimeout(() => {
-        resetFloatingPanelState();
-        checkoutCedula.focus();
-    }, 100);
+    renderCheckoutSummary();
+    setTimeout(() => checkoutCedula.focus(), 50);
 }
 
 function closeCheckoutModal() {
     checkoutModal.classList.add('hidden');
-    hideFloatingPanel();
-    setTimeout(() => {
-        checkoutCedula.value = '';
-        activeClientId.value = '';
-    }, 300);
+    clientModal?.classList.add('hidden');
+    clearClient();
 }
+window.closeCheckoutModal = closeCheckoutModal;
+
+document.addEventListener('keydown', (event) => {
+    if(event.key !== 'Escape') return;
+    if(clientModal && !clientModal.classList.contains('hidden')) {
+        closeClientModal();
+    } else if(isCheckoutOpen() && !clientSearchState.open) {
+        closeCheckoutModal();
+    }
+});
 
 // Referencias
 window.toggleReferenceField = function() {

@@ -4,6 +4,24 @@ require 'auth_api.php';
 apiRequireLogin(); // Todos los endpoints requieren sesion activa
 require 'db.php';
 require 'inventory.php';
+require_once __DIR__ . '/../lib/validation.php';
+
+// Non-negative numeric fields of a material payload (decimals allowed: kg, litros...).
+function materialNumberError(array $data): ?string {
+    $labels = [
+        'stock'            => 'El stock',
+        'min_stock'        => 'El stock mínimo',
+        'cost_per_unit'    => 'El costo por unidad',
+        'presentation_qty' => 'La cantidad por presentación',
+    ];
+    foreach ($labels as $field => $label) {
+        if (!array_key_exists($field, $data) || $data[$field] === '' || $data[$field] === null) continue;
+        if (!sweetposIsNonNegativeNumber($data[$field])) {
+            return "$label debe ser un número mayor o igual a 0.";
+        }
+    }
+    return null;
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -108,6 +126,10 @@ switch ($method) {
             jsonError("Faltan datos requeridos (nombre)");
             break;
         }
+        if ($numberError = materialNumberError($data)) {
+            jsonError($numberError);
+            break;
+        }
         $unit = trim((string)($data['unit'] ?? ''));
         if ($unit === '') $unit = 'unidades';
         $initialStock = max(0, round((float)($data['stock'] ?? 0), 6));
@@ -152,6 +174,10 @@ switch ($method) {
             break;
         }
         $materialId = (int)$data['id'];
+        if ($numberError = materialNumberError($data)) {
+            jsonError($numberError);
+            break;
+        }
 
         $pdo->beginTransaction();
         try {

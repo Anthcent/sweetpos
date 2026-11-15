@@ -59,7 +59,7 @@ $escape = fn($value) => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
                 <form method="post" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                     <input type="hidden" name="csrf" value="<?= $escape($_SESSION['users_csrf']) ?>">
                     <label class="text-sm font-semibold">Usuario
-                        <input name="username" required minlength="3" maxlength="50" pattern="[A-Za-z0-9._\-]+" autocomplete="off" class="mt-1 w-full rounded-xl border border-slate-300 p-3" placeholder="Nombre de usuario">
+                        <input name="username" data-rule="username" required minlength="3" maxlength="50" pattern="[A-Za-z0-9._\-]+" autocomplete="off" class="mt-1 w-full rounded-xl border border-slate-300 p-3" placeholder="Nombre de usuario">
                     </label>
                     <label class="text-sm font-semibold">Rol
                         <select name="role" required class="mt-1 w-full rounded-xl border border-slate-300 p-3">
@@ -70,7 +70,7 @@ $escape = fn($value) => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
                         <input type="password" name="password" required minlength="12" autocomplete="new-password" class="mt-1 w-full rounded-xl border border-slate-300 p-3" placeholder="Mínimo 12 caracteres">
                     </label>
                     <input type="hidden" name="is_active" value="1">
-                    <button class="rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold p-3">Crear usuario</button>
+                    <button class="rounded-xl bg-pink-700 hover:bg-pink-800 text-white font-bold p-3">Crear usuario</button>
                 </form>
             </section>
 
@@ -81,7 +81,7 @@ $escape = fn($value) => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
                     <input type="hidden" name="csrf" value="<?= $escape($_SESSION['users_csrf']) ?>">
                     <input type="hidden" name="id" value="<?= (int)$user['id'] ?>">
                     <label class="text-sm font-semibold">Usuario
-                        <input name="username" required minlength="3" maxlength="50" pattern="[A-Za-z0-9._\-]+" value="<?= $escape($user['username']) ?>" class="mt-1 w-full rounded-xl border border-slate-300 p-3">
+                        <input name="username" data-rule="username" required minlength="3" maxlength="50" pattern="[A-Za-z0-9._\-]+" value="<?= $escape($user['username']) ?>" class="mt-1 w-full rounded-xl border border-slate-300 p-3">
                     </label>
                     <label class="text-sm font-semibold">Rol
                         <select name="role" class="mt-1 w-full rounded-xl border border-slate-300 p-3">

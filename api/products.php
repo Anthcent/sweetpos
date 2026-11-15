@@ -4,6 +4,26 @@ require 'auth_api.php';
 apiRequireLogin(); // Todos los endpoints requieren sesion activa
 require 'db.php';
 require 'inventory.php';
+require_once __DIR__ . '/../lib/validation.php';
+
+// Non-negative numeric fields accepted by this endpoint. true = whole units only.
+const PRODUCT_NUMBER_FIELDS = [
+    'min_stock'        => ['El stock mínimo', true],
+    'stock'            => ['El stock', true],
+    'initial_stock'    => ['El stock inicial', true],
+    'produce_quantity' => ['La cantidad a elaborar', true],
+];
+
+// Rejects negative / non-numeric values instead of silently clamping them.
+function productNumberError(array $data): ?string {
+    foreach (PRODUCT_NUMBER_FIELDS as $field => [$label, $integer]) {
+        if (!array_key_exists($field, $data) || $data[$field] === '' || $data[$field] === null) continue;
+        if (!sweetposIsNonNegativeNumber($data[$field], $integer)) {
+            return $label . ($integer ? ' debe ser un número entero mayor o igual a 0.' : ' debe ser un número mayor o igual a 0.');
+        }
+    }
+    return null;
+}
 
 // Reglas de stock de productos:
 // - Con receta: el stock solo sube por Elaboracion (api/production.php). La unica
@@ -74,6 +94,7 @@ function saveFullProduct(PDO $pdo, array $data): array {
     if ($name === '' || $category === '') throw new StockException("El nombre y la categoría son obligatorios.", 400);
     if (mb_strlen($name) > 120) throw new StockException("El nombre es demasiado largo (máximo 120 caracteres).", 400);
     if (!is_numeric($price) || (float)$price < 0) throw new StockException("Precio invalido.", 400);
+    if ($numberError = productNumberError($data)) throw new StockException($numberError, 400);
     $color = $data['image_color'] ?? ($current['image_color'] ?? '#fbcfe8');
     if (!preg_match('/^#[0-9a-fA-F]{6}$/', (string)$color)) $color = '#fbcfe8';
     $minStock = max(0, (int)($data['min_stock'] ?? ($current['min_stock'] ?? 0)));
@@ -209,6 +230,10 @@ switch ($method) {
             jsonError("Faltan datos requeridos (nombre, categoría y precio válido)");
             break;
         }
+        if ($numberError = productNumberError($data)) {
+            jsonError($numberError);
+            break;
+        }
         $initialStock = max(0, (int)($data['stock'] ?? 0));
 
         $pdo->beginTransaction();
@@ -254,6 +279,7 @@ switch ($method) {
 
             $price = $data['price'] ?? $current['price'];
             if (!is_numeric($price) || $price < 0) throw new StockException("Precio invalido.", 400);
+            if ($numberError = productNumberError($data)) throw new StockException($numberError, 400);
 
             $stmt = $pdo->prepare("UPDATE products SET name=?, category=?, price=?, image_color=?, min_stock=?, is_active=? WHERE id=?");
             $stmt->execute([

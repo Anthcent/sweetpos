@@ -487,7 +487,7 @@
                             <div class="sm:col-span-2 flex flex-col">
                                 <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Cliente & Destino</span>
                                 <div class="flex items-center gap-2 flex-wrap">
-                                    ${sale.client_name ? `<span class="font-bold text-slate-800 truncate text-sm font-heading">${escapeHtml(sale.client_name)}</span> <span class="text-[10px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full font-bold">V-${escapeHtml(sale.client_cedula)}</span>` : `<span class="font-bold text-slate-500 italic text-sm">Cliente Rápido</span>`}
+                                    ${sale.client_name ? `<span class="font-bold text-slate-800 truncate text-sm font-heading">${escapeHtml(sale.client_name)}</span> <span class="text-[10px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full font-bold">${escapeHtml(FieldRules.formatCedula(sale.client_cedula))}</span>` : `<span class="font-bold text-slate-500 italic text-sm">Cliente Rápido</span>`}
                                 </div>
                                 <div class="text-xs text-pink-600 font-bold mt-1 flex items-center gap-1">
                                     <i data-lucide="${tableStr === 'Llevar' ? 'shopping-bag' : 'armchair'}" class="w-3.5 h-3.5"></i> 

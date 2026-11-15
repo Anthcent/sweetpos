@@ -114,8 +114,9 @@
     </main>
 
     <!-- Modal Pago Mesa -->
-    <div id="payment-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 transition-opacity">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-[slideIn_0.2s_ease-out] border border-slate-100 max-h-[92dvh] flex flex-col">
+    <div id="payment-modal" role="dialog" aria-modal="true" aria-label="Cobrar mesa" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 transition-opacity">
+        <div class="checkout-layout flex flex-col md:flex-row items-stretch md:items-start justify-center gap-3 sm:gap-4 w-full max-w-md md:max-w-[47rem] max-h-[92dvh] overflow-y-auto no-scrollbar">
+        <div class="order-2 md:order-1 bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-[slideIn_0.2s_ease-out] border border-slate-100 max-h-[90vh] flex flex-col shrink-0">
             <div class="px-5 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/70 shrink-0">
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center">
@@ -123,7 +124,7 @@
                     </div>
                     <h3 class="font-extrabold text-base text-slate-900 font-heading">Cobrar Mesa</h3>
                 </div>
-                <button onclick="closePaymentModal()" class="text-slate-400 hover:text-slate-700 bg-slate-200/50 hover:bg-slate-200 rounded-full p-1.5 transition-colors">
+                <button onclick="closePaymentModal()" aria-label="Cerrar cobro" class="text-slate-600 hover:text-slate-900 bg-slate-200/50 hover:bg-slate-200 rounded-full p-1.5 transition-colors">
                     <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>
@@ -133,10 +134,10 @@
                 
                 <div class="flex justify-between items-center bg-gradient-to-r from-pink-50 to-purple-50 p-3.5 sm:p-4 rounded-2xl border border-pink-100">
                     <div>
-                        <span class="text-pink-600 font-bold uppercase tracking-wider text-xs block">Total a Cobrar</span>
-                        <span class="text-[11px] text-slate-400 font-medium">Monto final de la comanda</span>
+                        <span class="text-pink-800 font-bold uppercase tracking-wider text-xs block">Total a Cobrar</span>
+                        <span class="text-[11px] text-slate-600 font-medium">Monto final de la comanda</span>
                     </div>
-                    <span id="pay-modal-total" class="text-2xl sm:text-3xl font-black text-pink-600 font-heading">$0.00</span>
+                    <span id="pay-modal-total" class="text-2xl sm:text-3xl font-black text-pink-700 font-heading">$0.00</span>
                 </div>
 
                 <div>
@@ -144,28 +145,28 @@
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <label class="cursor-pointer">
                             <input type="radio" name="payment_method" value="cash" class="peer sr-only" checked onchange="toggleReferenceField()">
-                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-500 peer-checked:text-pink-700 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
+                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-600 peer-checked:text-pink-800 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
                                 <i data-lucide="banknote" class="w-5 h-5"></i>
                                 <span class="font-bold text-[10px] uppercase">Efectivo</span>
                             </div>
                         </label>
                         <label class="cursor-pointer">
                             <input type="radio" name="payment_method" value="card" class="peer sr-only" onchange="toggleReferenceField()">
-                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-500 peer-checked:text-pink-700 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
+                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-600 peer-checked:text-pink-800 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
                                 <i data-lucide="credit-card" class="w-5 h-5"></i>
                                 <span class="font-bold text-[10px] uppercase">Tarjeta</span>
                             </div>
                         </label>
                         <label class="cursor-pointer">
                             <input type="radio" name="payment_method" value="transfer" class="peer sr-only" onchange="toggleReferenceField()">
-                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-500 peer-checked:text-pink-700 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
+                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-600 peer-checked:text-pink-800 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
                                 <i data-lucide="arrow-left-right" class="w-5 h-5"></i>
                                 <span class="font-bold text-[10px] uppercase">Transf.</span>
                             </div>
                         </label>
                         <label class="cursor-pointer">
                             <input type="radio" name="payment_method" value="pagomovil" class="peer sr-only" onchange="toggleReferenceField()">
-                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-500 peer-checked:text-pink-700 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
+                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-600 peer-checked:text-pink-800 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
                                 <i data-lucide="smartphone" class="w-5 h-5"></i>
                                 <span class="font-bold text-[10px] uppercase">Pago Móv.</span>
                             </div>
@@ -185,6 +186,28 @@
                     <span>Confirmar Pago de Mesa</span>
                 </button>
             </div>
+        </div>
+
+        <!-- Burbuja de resumen de la comanda (solo lectura: la comanda ya descontó stock) -->
+        <aside id="pay-summary" class="order-summary-bubble is-collapsed order-1 md:order-2 w-full max-w-md md:w-72 md:max-w-none md:shrink-0" aria-label="Resumen de la comanda">
+            <button type="button" id="pay-summary-toggle" class="order-summary-toggle" aria-expanded="false" aria-controls="pay-summary-list">
+                <span class="flex items-center gap-2 min-w-0">
+                    <span class="w-7 h-7 rounded-lg bg-white text-pink-700 flex items-center justify-center shrink-0 border border-pink-200">
+                        <i data-lucide="receipt" class="w-4 h-4"></i>
+                    </span>
+                    <span class="font-extrabold text-sm font-heading">Resumen de la comanda</span>
+                </span>
+                <span class="flex items-center gap-2 shrink-0">
+                    <span id="pay-summary-count" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white text-pink-800 border border-pink-200">0 artículos</span>
+                    <i data-lucide="chevron-down" class="chevron w-4 h-4"></i>
+                </span>
+            </button>
+            <div id="pay-summary-list" class="order-summary-list"></div>
+            <div class="order-summary-footer">
+                <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Total</span>
+                <span id="pay-summary-total" class="text-xl font-black text-pink-700 font-heading">$0.00</span>
+            </div>
+        </aside>
         </div>
     </div>
 
@@ -462,8 +485,41 @@
         function openPaymentModal(saleId, total) {
             document.getElementById('pay-sale-id').value = saleId;
             document.getElementById('pay-modal-total').innerText = '$' + parseFloat(total).toFixed(2);
+            renderPaymentSummary(allTablesCache.find(s => Number(s.id) === Number(saleId)), total);
             document.getElementById('payment-modal').classList.remove('hidden');
         }
+
+        // Read-only list of the ticket lines. A pending ticket already discounted
+        // stock, so removing lines would need a server-side partial void.
+        function renderPaymentSummary(sale, total) {
+            const summary = document.getElementById('pay-summary');
+            const list = document.getElementById('pay-summary-list');
+            const items = (sale && sale.items) || [];
+            const units = items.reduce((acc, item) => acc + Number(item.quantity || 0), 0);
+            const totalText = '$' + parseFloat(total).toFixed(2);
+            list.innerHTML = items.length === 0
+                ? '<p class="text-xs text-slate-600 py-2">No hay productos en esta comanda.</p>'
+                : items.map(item => {
+                    const qty = Number(item.quantity) || 0;
+                    const subtotal = parseFloat(item.subtotal) || 0;
+                    const unit = qty > 0 ? subtotal / qty : 0;
+                    return `
+                        <div class="order-summary-line">
+                            <span class="text-sm font-bold text-slate-800 leading-snug min-w-0 truncate">${escapeHtml(item.name)}</span>
+                            <span class="text-sm font-black text-slate-900 font-heading text-right">$${subtotal.toFixed(2)}</span>
+                            <span class="text-xs text-slate-600 font-semibold col-span-2">${qty} × $${unit.toFixed(2)}</span>
+                        </div>`;
+                }).join('');
+            document.getElementById('pay-summary-total').textContent = totalText;
+            document.getElementById('pay-summary-count').textContent = `${units} ${units === 1 ? 'artículo' : 'artículos'} · ${totalText}`;
+            summary.classList.add('is-collapsed');
+            document.getElementById('pay-summary-toggle').setAttribute('aria-expanded', 'false');
+        }
+
+        document.getElementById('pay-summary-toggle').addEventListener('click', () => {
+            const collapsed = document.getElementById('pay-summary').classList.toggle('is-collapsed');
+            document.getElementById('pay-summary-toggle').setAttribute('aria-expanded', String(!collapsed));
+        });
 
         function closePaymentModal() {
             document.getElementById('payment-modal').classList.add('hidden');

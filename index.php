@@ -246,40 +246,67 @@
         </div>
     </aside>
 
-    <!-- Modal de Checkout & Floating Panel Wrapper -->
-    <div id="checkout-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 transition-opacity">
-        
-        <div class="flex flex-col md:flex-row items-center md:items-start gap-3 sm:gap-4 w-full max-w-lg md:max-w-3xl max-h-[92dvh] overflow-y-auto no-scrollbar">
+    <!-- Modal de Checkout: formulario de cobro + burbuja de resumen del pedido -->
+    <div id="checkout-modal" role="dialog" aria-modal="true" aria-labelledby="checkout-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 transition-opacity">
+
+        <div class="checkout-layout flex flex-col md:flex-row items-stretch md:items-start justify-center gap-3 sm:gap-4 w-full max-w-lg md:max-w-[50rem] max-h-[92dvh] overflow-y-auto no-scrollbar">
             <!-- Modal Principal de Cobro -->
-            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md md:w-[480px] overflow-hidden flex flex-col max-h-[90vh] border border-slate-100 shrink-0">
+            <div class="order-2 md:order-1 bg-white rounded-3xl shadow-2xl w-full max-w-md md:w-[480px] overflow-hidden flex flex-col max-h-[90vh] border border-slate-100 shrink-0">
                 <div class="px-5 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/70 shrink-0">
                     <div class="flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center">
+                        <div class="w-8 h-8 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center">
                             <i data-lucide="credit-card" class="w-4 h-4 stroke-[2.2]"></i>
                         </div>
-                        <h3 class="font-extrabold text-lg text-slate-900 font-heading">Cobrar Pedido</h3>
+                        <h3 id="checkout-title" class="font-extrabold text-lg text-slate-900 font-heading">Cobrar Pedido</h3>
                     </div>
-                    <button type="button" onclick="closeCheckoutModal()" class="text-slate-400 hover:text-slate-700 bg-slate-200/50 hover:bg-slate-200 rounded-full p-1.5 transition-colors">
+                    <button type="button" onclick="closeCheckoutModal()" aria-label="Cerrar cobro" class="text-slate-600 hover:text-slate-900 bg-slate-200/60 hover:bg-slate-200 rounded-full p-1.5 transition-colors">
                         <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
                 </div>
-                
+
                 <div class="p-4 sm:p-6 flex flex-col gap-3.5 sm:gap-4 overflow-y-auto">
-                    <!-- Buscador de Cliente Automático -->
+                    <!-- Cliente: búsqueda por cédula o nombre -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Cliente (Cédula o Identificación)</label>
-                        <div class="relative">
-                            <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
-                            <input type="text" id="checkout-cedula" placeholder="Buscar cédula automáticamente..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-sm tracking-wider font-semibold text-slate-800">
+                        <div id="checkout-client-search">
+                            <label for="checkout-cedula" class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Cliente (cédula o nombre)</label>
+                            <div class="relative">
+                                <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>
+                                <input type="text" id="checkout-cedula" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="client-results" autocomplete="off" maxlength="60" placeholder="Ej. V-12345678 o María Pérez" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-sm font-semibold text-slate-800">
+                                <div id="client-results" role="listbox" aria-label="Clientes encontrados" class="client-results hidden"></div>
+                            </div>
+                            <div class="flex flex-wrap gap-2 mt-2">
+                                <button type="button" id="fast-client-btn" class="btn-soft-amber flex-1 min-w-[8rem] py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-colors">
+                                    <i data-lucide="zap" class="w-4 h-4"></i>
+                                    <span>Cliente rápido</span>
+                                </button>
+                                <button type="button" id="register-client-btn" class="hidden btn-soft-pink flex-1 min-w-[8rem] py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-colors">
+                                    <i data-lucide="user-plus" class="w-4 h-4"></i>
+                                    <span>Registrar cliente</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Cliente seleccionado -->
+                        <div id="client-selected" class="client-chip hidden">
+                            <div class="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-xs">
+                                <i id="client-selected-icon" data-lucide="user-check" class="w-5 h-5"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p id="client-name-display" class="font-extrabold text-sm leading-tight truncate font-heading"></p>
+                                <p id="client-cedula-display" class="text-xs font-mono font-semibold mt-0.5"></p>
+                            </div>
+                            <button type="button" id="clear-client-btn" class="shrink-0 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 text-xs font-bold py-1.5 px-3 rounded-xl transition-colors">
+                                Cambiar
+                            </button>
                         </div>
                         <input type="hidden" id="active-client-id" value="">
                     </div>
 
                     <!-- Info Mesa -->
                     <div id="modal-table-info" class="hidden bg-pink-50/70 border border-pink-200/80 rounded-2xl p-3 sm:p-3.5 flex items-center gap-3 text-pink-900">
-                        <div class="w-9 h-9 rounded-xl bg-white text-pink-600 flex items-center justify-center shadow-xs shrink-0"><i data-lucide="armchair" class="w-5 h-5"></i></div>
+                        <div class="w-9 h-9 rounded-xl bg-white text-pink-700 flex items-center justify-center shadow-xs shrink-0"><i data-lucide="armchair" class="w-5 h-5"></i></div>
                         <div>
-                            <p class="text-[10px] font-extrabold uppercase tracking-wider text-pink-600">Destino del Pedido</p>
+                            <p class="text-[10px] font-extrabold uppercase tracking-wider text-pink-700">Destino del Pedido</p>
                             <p class="font-black text-sm">Servir en <span id="modal-table-num-display">--</span></p>
                         </div>
                     </div>
@@ -287,40 +314,40 @@
                     <!-- Total destacado -->
                     <div class="flex justify-between items-center bg-gradient-to-r from-pink-50/70 via-purple-50/40 to-slate-50 p-3.5 sm:p-4 rounded-2xl border border-pink-100">
                         <div>
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total de la Venta</span>
-                            <span class="text-[11px] text-pink-600 font-semibold">Listo para facturar</span>
+                            <span class="text-xs font-bold text-slate-600 uppercase tracking-wider block">Total de la Venta</span>
+                            <span class="text-[11px] text-pink-700 font-semibold">Listo para facturar</span>
                         </div>
-                        <span id="modal-total" class="text-2xl sm:text-3xl font-black text-pink-600 font-heading">$0.00</span>
+                        <span id="modal-total" class="text-2xl sm:text-3xl font-black text-pink-700 font-heading">$0.00</span>
                     </div>
 
                     <!-- Método de Pago (Cards elegantes con íconos minimalistas) -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Método de Pago</label>
+                        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Método de Pago</label>
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             <label class="cursor-pointer">
                                 <input type="radio" name="payment_method" value="cash" class="peer sr-only" checked onchange="toggleReferenceField()">
-                                <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-500 peer-checked:text-pink-700 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
+                                <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-600 peer-checked:text-pink-800 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
                                     <i data-lucide="banknote" class="w-5 h-5"></i>
                                     <span class="font-extrabold text-[10px] uppercase">Efectivo</span>
                                 </div>
                             </label>
                             <label class="cursor-pointer">
                                 <input type="radio" name="payment_method" value="card" class="peer sr-only" onchange="toggleReferenceField()">
-                                <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-500 peer-checked:text-pink-700 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
+                                <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-600 peer-checked:text-pink-800 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
                                     <i data-lucide="credit-card" class="w-5 h-5"></i>
                                     <span class="font-extrabold text-[10px] uppercase">Tarjeta</span>
                                 </div>
                             </label>
                             <label class="cursor-pointer">
                                 <input type="radio" name="payment_method" value="transfer" class="peer sr-only" onchange="toggleReferenceField()">
-                                <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-500 peer-checked:text-pink-700 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
+                                <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-600 peer-checked:text-pink-800 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
                                     <i data-lucide="arrow-left-right" class="w-5 h-5"></i>
                                     <span class="font-extrabold text-[10px] uppercase">Transf.</span>
                                 </div>
                             </label>
                             <label class="cursor-pointer">
                                 <input type="radio" name="payment_method" value="pagomovil" class="peer sr-only" onchange="toggleReferenceField()">
-                                <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-500 peer-checked:text-pink-700 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
+                                <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-600 peer-checked:text-pink-800 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
                                     <i data-lucide="smartphone" class="w-5 h-5"></i>
                                     <span class="font-extrabold text-[10px] uppercase">Pago Móv.</span>
                                 </div>
@@ -330,7 +357,7 @@
 
                     <!-- Campo Referencia -->
                     <div id="reference-field-container" class="hidden">
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nº de Referencia (Últimos dígitos)</label>
+                        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Nº de Referencia (Últimos dígitos)</label>
                         <input type="text" id="payment-reference" placeholder="Ej. 4589" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-mono text-base tracking-widest text-slate-800 font-bold">
                     </div>
                 </div>
@@ -348,73 +375,65 @@
                 </div>
             </div>
 
-            <!-- Panel Flotante Animado (Estados del Cliente) -->
-            <div id="floating-client-panel" class="w-56 flex flex-col gap-3 transition-all duration-300 translate-x-4 opacity-0 scale-95 pointer-events-none mt-20">
-                
-                <!-- Botón Cliente Rápido -->
-                <button type="button" id="fast-client-btn" class="w-full bg-white shadow-xl hover:bg-slate-50 text-slate-700 py-4 px-4 rounded-3xl font-extrabold flex flex-col items-center justify-center gap-2 border border-slate-100 transition-all transform hover:scale-105 active:scale-95 group font-heading">
-                    <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
-                        <i data-lucide="zap" class="w-6 h-6 stroke-[2.2]"></i>
-                    </div>
-                    <span class="text-xs">Cliente Rápido</span>
+            <!-- Burbuja de resumen del pedido (derecha en escritorio, plegable arriba en móvil) -->
+            <aside id="checkout-summary" class="order-summary-bubble is-collapsed order-1 md:order-2 w-full max-w-md md:w-72 md:max-w-none md:shrink-0" aria-label="Resumen del pedido">
+                <button type="button" id="checkout-summary-toggle" class="order-summary-toggle" aria-expanded="false" aria-controls="checkout-summary-list">
+                    <span class="flex items-center gap-2 min-w-0">
+                        <span class="w-7 h-7 rounded-lg bg-white text-pink-700 flex items-center justify-center shrink-0 border border-pink-200">
+                            <i data-lucide="receipt" class="w-4 h-4"></i>
+                        </span>
+                        <span class="font-extrabold text-sm font-heading">Resumen del pedido</span>
+                    </span>
+                    <span class="flex items-center gap-2 shrink-0">
+                        <span id="checkout-summary-count" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white text-pink-800 border border-pink-200">0 artículos</span>
+                        <i data-lucide="chevron-down" class="chevron w-4 h-4"></i>
+                    </span>
                 </button>
-
-                <!-- Botón Registrar Cliente -->
-                <button type="button" id="register-floating-btn" onclick="document.getElementById('client-modal').classList.remove('hidden')" class="hidden w-full bg-pink-500 shadow-xl hover:bg-pink-600 text-white py-4 px-4 rounded-3xl font-extrabold flex-col items-center justify-center gap-2 transition-all transform hover:scale-105 active:scale-95 font-heading">
-                    <div class="w-12 h-12 rounded-2xl bg-white/20 text-white flex items-center justify-center">
-                        <i data-lucide="user-plus" class="w-6 h-6"></i>
-                    </div>
-                    <span class="text-xs">Registrar Cliente</span>
-                </button>
-
-                <!-- Info Cliente Encontrado -->
-                <div id="client-found-card" class="hidden w-full bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl text-white p-5 rounded-3xl flex flex-col gap-2 relative overflow-hidden">
-                    <div class="absolute -right-3 -top-3 opacity-15"><i data-lucide="check-circle" class="w-20 h-20"></i></div>
-                    <div class="relative z-10 flex flex-col">
-                        <span class="text-emerald-100 text-[10px] font-extrabold uppercase tracking-widest mb-1">Cliente Registrado</span>
-                        <span id="client-name-display" class="font-extrabold text-base leading-tight font-heading">Juan Perez</span>
-                        <span id="client-cedula-display" class="text-xs font-mono text-emerald-100 mt-0.5">V-12345678</span>
-                    </div>
-                    <button type="button" id="clear-client-btn" class="relative z-10 mt-2 bg-black/20 hover:bg-black/30 text-white text-[11px] font-bold py-1.5 px-3 rounded-xl transition-colors">
-                        Cambiar
-                    </button>
+                <div id="checkout-summary-list" class="order-summary-list"></div>
+                <div class="order-summary-footer">
+                    <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Total</span>
+                    <span id="checkout-summary-total" class="text-xl font-black text-pink-700 font-heading">$0.00</span>
                 </div>
-
-            </div>
+            </aside>
 
         </div>
     </div>
 
     <!-- Modal Registrar Cliente -->
-    <div id="client-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[60] flex items-center justify-center p-4 transition-opacity">
+    <div id="client-modal" role="dialog" aria-modal="true" aria-labelledby="client-modal-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[60] flex items-center justify-center p-4 transition-opacity">
         <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-100">
             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/70">
                 <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center">
+                    <div class="w-8 h-8 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center">
                         <i data-lucide="user-plus" class="w-4 h-4"></i>
                     </div>
-                    <h3 class="font-extrabold text-slate-800 font-heading">Nuevo Cliente</h3>
+                    <h3 id="client-modal-title" class="font-extrabold text-slate-800 font-heading">Nuevo Cliente</h3>
                 </div>
-                <button type="button" onclick="document.getElementById('client-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+                <button type="button" onclick="closeClientModal()" aria-label="Cerrar registro de cliente" class="text-slate-600 hover:text-slate-900">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
-            <form id="client-form" class="p-6 flex flex-col gap-4">
+            <form id="client-form" novalidate class="p-6 flex flex-col gap-4">
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cédula / Documento</label>
-                    <input type="text" id="c-cedula" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-mono text-sm font-semibold">
+                    <label for="c-cedula" class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Cédula / Documento</label>
+                    <input type="text" id="c-cedula" data-rule="cedula" required placeholder="Ej. V-12345678" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-mono text-sm font-semibold">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre Completo</label>
-                    <input type="text" id="c-name" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-sm font-medium">
+                    <label for="c-name" class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Nombre Completo</label>
+                    <input type="text" id="c-name" data-rule="name" required placeholder="Ej. María Pérez" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-sm font-medium">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Teléfono (Opcional)</label>
-                    <input type="text" id="c-phone" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-sm font-medium">
+                    <label for="c-phone" class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Teléfono (Opcional)</label>
+                    <input type="tel" id="c-phone" data-rule="phone" placeholder="Ej. 04121234567" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-sm font-medium">
                 </div>
-                <button type="submit" class="btn-sweet-accent mt-2 w-full text-white font-bold py-3 rounded-xl transition-all flex justify-center items-center gap-2 shadow-md">
-                    <i data-lucide="save" class="w-4 h-4"></i> Guardar Cliente
-                </button>
+                <div class="grid grid-cols-2 gap-3 mt-2">
+                    <button type="button" onclick="closeClientModal()" class="w-full bg-white hover:bg-slate-100 text-slate-800 font-bold py-3 rounded-xl border border-slate-300 transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-sweet-accent w-full text-white font-bold py-3 rounded-xl transition-all flex justify-center items-center gap-2 shadow-md">
+                        <i data-lucide="save" class="w-4 h-4"></i> Guardar
+                    </button>
+                </div>
             </form>
         </div>
     </div>
@@ -424,12 +443,12 @@
         <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/70">
                 <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center">
+                    <div class="w-8 h-8 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center">
                         <i data-lucide="credit-card" class="w-4 h-4"></i>
                     </div>
-                    <h3 class="font-extrabold text-base text-slate-900 font-heading">Cobrar <span id="pos-pay-table-name" class="text-pink-600"></span></h3>
+                    <h3 class="font-extrabold text-base text-slate-900 font-heading">Cobrar <span id="pos-pay-table-name" class="text-pink-700"></span></h3>
                 </div>
-                <button type="button" onclick="closePosPaymentModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                <button type="button" onclick="closePosPaymentModal()" class="text-slate-600 hover:text-slate-900 p-1">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -437,36 +456,36 @@
                 <input type="hidden" id="pos-pay-sale-id">
                 <div class="flex justify-between items-center bg-gradient-to-r from-pink-50 to-purple-50 p-4 rounded-2xl border border-pink-100">
                     <span class="text-pink-700 font-extrabold uppercase tracking-wider text-xs">Total Pendiente</span>
-                    <span id="pos-pay-modal-total" class="text-3xl font-black text-pink-600 font-heading">$0.00</span>
+                    <span id="pos-pay-modal-total" class="text-3xl font-black text-pink-700 font-heading">$0.00</span>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Método de Pago</label>
+                    <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Método de Pago</label>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <label class="cursor-pointer">
                             <input type="radio" name="pos_payment_method" value="cash" class="peer sr-only" checked onchange="togglePosReferenceField()">
-                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-500 peer-checked:text-pink-700 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
+                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-600 peer-checked:text-pink-800 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
                                 <i data-lucide="banknote" class="w-5 h-5"></i>
                                 <span class="font-bold text-[10px] uppercase">Efectivo</span>
                             </div>
                         </label>
                         <label class="cursor-pointer">
                             <input type="radio" name="pos_payment_method" value="card" class="peer sr-only" onchange="togglePosReferenceField()">
-                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-500 peer-checked:text-pink-700 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
+                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-600 peer-checked:text-pink-800 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
                                 <i data-lucide="credit-card" class="w-5 h-5"></i>
                                 <span class="font-bold text-[10px] uppercase">Tarjeta</span>
                             </div>
                         </label>
                         <label class="cursor-pointer">
                             <input type="radio" name="pos_payment_method" value="transfer" class="peer sr-only" onchange="togglePosReferenceField()">
-                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-500 peer-checked:text-pink-700 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
+                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-600 peer-checked:text-pink-800 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
                                 <i data-lucide="arrow-left-right" class="w-5 h-5"></i>
                                 <span class="font-bold text-[10px] uppercase">Transf.</span>
                             </div>
                         </label>
                         <label class="cursor-pointer">
                             <input type="radio" name="pos_payment_method" value="pagomovil" class="peer sr-only" onchange="togglePosReferenceField()">
-                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-500 peer-checked:text-pink-700 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
+                            <div class="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 text-slate-600 peer-checked:text-pink-800 transition-all text-center hover:border-pink-200 hover:bg-slate-50">
                                 <i data-lucide="smartphone" class="w-5 h-5"></i>
                                 <span class="font-bold text-[10px] uppercase">Pago Móv.</span>
                             </div>
@@ -475,7 +494,7 @@
                 </div>
 
                 <div id="pos-reference-field-container" class="hidden">
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nº de Referencia</label>
+                    <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Nº de Referencia</label>
                     <input type="text" id="pos-payment-reference" placeholder="Ej. 4589" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-mono text-base tracking-widest text-slate-800 font-bold">
                 </div>
             </div>

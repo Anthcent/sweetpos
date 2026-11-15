@@ -18,6 +18,7 @@ if (canAccess('usuarios')) $mobileSheetModules[] = ['usuarios.php', 'users', 'Us
 ?>
 <!-- Helpers compartidos (escapeHtml) disponibles para los scripts de cada pagina -->
 <script src="assets/utils.js"></script>
+<script src="assets/validation.js"></script>
 <nav class="app-sidebar w-20 bg-white border-r border-slate-200/80 flex flex-col items-center py-6 z-10 shadow-sm relative shrink-0" aria-label="Navegación principal">
 
     <!-- Logo de la heladería / dulcería -->

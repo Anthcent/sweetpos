@@ -83,7 +83,7 @@ function pdfBuildDeliveryNote(PDO $pdo, int $saleId, ?string $username, array $o
     $pdf->sectionTitle('Cliente');
     if (!empty($sale['client_id']) && $sale['client_name'] !== null) {
         $pdf->field('Nombre', $sale['client_name']);
-        $pdf->field('Cédula', (string)($sale['client_cedula'] ?? '') !== '' ? 'V-' . $sale['client_cedula'] : '-');
+        $pdf->field('Cédula', (string)($sale['client_cedula'] ?? '') !== '' ? sweetposFormatCedula($sale['client_cedula']) : '-');
         $pdf->field('Teléfono', $sale['client_phone']);
         $pdf->field('Dirección', $sale['client_address']);
     } else {

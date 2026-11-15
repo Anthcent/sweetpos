@@ -6,6 +6,7 @@
 // receipt and its PDF always carry the same NE-xxxxxx number.
 
 require_once __DIR__ . '/pdf_base.php';
+require_once __DIR__ . '/validation.php'; // sweetposFormatCedula
 
 const PDF_PAYMENT_LABELS = [
     'cash'      => 'Efectivo',
@@ -183,7 +184,7 @@ function deliveryNoteReceipt(PDO $pdo, int $saleId, ?string $username, ?array $v
         ],
         'client' => $hasClient ? [
             'name'    => (string)$sale['client_name'],
-            'cedula'  => (string)($sale['client_cedula'] ?? '') !== '' ? 'V-' . $sale['client_cedula'] : null,
+            'cedula'  => (string)($sale['client_cedula'] ?? '') !== '' ? sweetposFormatCedula($sale['client_cedula']) : null,
             'phone'   => (string)($sale['client_phone'] ?? ''),
             'address' => (string)($sale['client_address'] ?? ''),
         ] : null,
