@@ -2,6 +2,7 @@
 // Shared report queries and normalized report data for the UI and exports.
 
 require_once __DIR__ . '/insights_lib.php';
+require_once __DIR__ . '/../lib/validation.php';
 
 class ReportRequestException extends RuntimeException {
     public int $status;
@@ -80,8 +81,9 @@ function reportStatusLabel(string $status): string {
     return ['ok' => 'OK', 'bajo' => 'Bajo', 'critico' => 'Crítico', 'agotado' => 'Agotado'][$status] ?? $status;
 }
 
-function reportColumn(string $label, string $format = 'text', string $align = 'L', int $weight = 1): array {
-    return ['label' => $label, 'format' => $format, 'align' => $align, 'weight' => $weight];
+/** $sum marks additive columns; they get a value in the table's totals row. */
+function reportColumn(string $label, string $format = 'text', string $align = 'L', int $weight = 1, bool $sum = false): array {
+    return ['label' => $label, 'format' => $format, 'align' => $align, 'weight' => $weight, 'sum' => $sum];
 }
 
 function reportTable(string $title, array $columns, array $rows): array {
@@ -122,7 +124,7 @@ function reportStatusTables(array $pending, array $voided): array {
         }
         $tables[] = reportTable('Órdenes pendientes', [
             reportColumn('Orden', 'integer', 'R', 1), reportColumn('Creada', 'text', 'L', 3),
-            reportColumn('Vendedor', 'text', 'L', 3), reportColumn('Monto', 'money', 'R', 2),
+            reportColumn('Vendedor', 'text', 'L', 3), reportColumn('Monto', 'money', 'R', 2, true),
         ], $rows);
     }
     if ($voided) {
@@ -137,7 +139,7 @@ function reportStatusTables(array $pending, array $voided): array {
         $tables[] = reportTable('Órdenes anuladas (se muestran separadas)', [
             reportColumn('Orden', 'integer', 'R', 1), reportColumn('Anulada', 'text', 'L', 3),
             reportColumn('Anuló', 'text', 'L', 2), reportColumn('Motivo', 'text', 'L', 4),
-            reportColumn('Monto', 'money', 'R', 2),
+            reportColumn('Monto', 'money', 'R', 2, true),
         ], $rows);
     }
     return $tables;
@@ -226,17 +228,17 @@ function reportBuildDailyClose(PDO $pdo, array $filters): array {
     ];
     $tables = [
         reportTable('Cobros por método de pago', [
-            reportColumn('Método', 'text', 'L', 3), reportColumn('Cobros', 'integer', 'R', 1),
-            reportColumn('Monto', 'money', 'R', 2), reportColumn('Participación', 'percent', 'R', 2),
+            reportColumn('Método', 'text', 'L', 3), reportColumn('Cobros', 'integer', 'R', 1, true),
+            reportColumn('Monto', 'money', 'R', 2, true), reportColumn('Participación', 'percent', 'R', 2),
         ], reportPaymentRows($byMethod, $paidTotal)),
         reportTable('Cobros por vendedor', [
-            reportColumn('Vendedor', 'text', 'L', 3), reportColumn('Cobros', 'integer', 'R', 1),
-            reportColumn('Monto', 'money', 'R', 2),
+            reportColumn('Vendedor', 'text', 'L', 3), reportColumn('Cobros', 'integer', 'R', 1, true),
+            reportColumn('Monto', 'money', 'R', 2, true),
         ], reportCashierRows($byCashier)),
         reportTable('Detalle de cobros', [
             reportColumn('Orden', 'integer', 'R', 1), reportColumn('Hora', 'text', 'L', 1),
             reportColumn('Vendedor', 'text', 'L', 3), reportColumn('Método', 'text', 'L', 3),
-            reportColumn('Monto', 'money', 'R', 2), reportColumn('Estado', 'text', 'L', 1),
+            reportColumn('Monto', 'money', 'R', 2, true), reportColumn('Estado', 'text', 'L', 1),
         ], $detailRows),
     ];
     $tables = array_merge($tables, reportStatusTables($pending, $voided));
@@ -323,16 +325,16 @@ function reportBuildMonthlyClose(PDO $pdo, array $filters): array {
     ];
     $tables = [
         reportTable('Ventas por día', [
-            reportColumn('Fecha', 'text', 'L', 2), reportColumn('Cobros', 'integer', 'R', 1),
-            reportColumn('Monto cobrado', 'money', 'R', 2),
+            reportColumn('Fecha', 'text', 'L', 2), reportColumn('Cobros', 'integer', 'R', 1, true),
+            reportColumn('Monto cobrado', 'money', 'R', 2, true),
         ], $dayRows),
         reportTable('Cobros por método de pago', [
-            reportColumn('Método', 'text', 'L', 3), reportColumn('Cobros', 'integer', 'R', 1),
-            reportColumn('Monto', 'money', 'R', 2), reportColumn('Participación', 'percent', 'R', 2),
+            reportColumn('Método', 'text', 'L', 3), reportColumn('Cobros', 'integer', 'R', 1, true),
+            reportColumn('Monto', 'money', 'R', 2, true), reportColumn('Participación', 'percent', 'R', 2),
         ], reportPaymentRows($byMethod, $paidTotal)),
         reportTable('Cobros por vendedor', [
-            reportColumn('Vendedor', 'text', 'L', 3), reportColumn('Cobros', 'integer', 'R', 1),
-            reportColumn('Monto', 'money', 'R', 2),
+            reportColumn('Vendedor', 'text', 'L', 3), reportColumn('Cobros', 'integer', 'R', 1, true),
+            reportColumn('Monto', 'money', 'R', 2, true),
         ], reportCashierRows($byCashier)),
     ];
     return [
@@ -397,8 +399,8 @@ function reportBuildTopSellers(PDO $pdo, array $filters): array {
         ],
         'tables' => [reportTable('Ranking de productos', [
             reportColumn('#', 'integer', 'R', 1), reportColumn('Producto', 'text', 'L', 4),
-            reportColumn('Categoría', 'text', 'L', 2), reportColumn('Unidades', 'integer', 'R', 1),
-            reportColumn('Órdenes', 'integer', 'R', 1), reportColumn('Monto vendido', 'money', 'R', 2),
+            reportColumn('Categoría', 'text', 'L', 2), reportColumn('Unidades', 'integer', 'R', 1, true),
+            reportColumn('Órdenes', 'integer', 'R', 1), reportColumn('Monto vendido', 'money', 'R', 2, true),
         ], $rows)],
         'notes' => ['Se consideran únicamente ventas cobradas en el período, por su fecha de pago.'],
     ];
@@ -698,8 +700,8 @@ function reportBuildSalesPeriod(PDO $pdo, array $filters): array {
     ], [
         reportTable('Ventas por día', [
             reportColumn('Fecha', 'text', 'L', 2), reportColumn('Día', 'text', 'L', 2),
-            reportColumn('Ventas', 'integer', 'R', 1), reportColumn('Unidades', 'integer', 'R', 1),
-            reportColumn('Monto', 'money', 'R', 2), reportColumn('Ticket promedio', 'money', 'R', 2),
+            reportColumn('Ventas', 'integer', 'R', 1, true), reportColumn('Unidades', 'integer', 'R', 1, true),
+            reportColumn('Monto', 'money', 'R', 2, true), reportColumn('Ticket promedio', 'money', 'R', 2),
         ], $rows),
     ], [
         'Se consideran las ventas cobradas por su fecha de pago. Las órdenes pendientes y anuladas se muestran aparte y no suman al total.',
@@ -762,13 +764,13 @@ function reportBuildSalesByCategory(PDO $pdo, array $filters): array {
         reportMetric('Categoría líder', $leader ?? 'Sin ventas'),
     ], [
         reportTable('Resumen por categoría', [
-            reportColumn('Categoría', 'text', 'L', 3), reportColumn('Productos', 'integer', 'R', 1),
-            reportColumn('Unidades', 'integer', 'R', 1), reportColumn('Órdenes', 'integer', 'R', 1),
-            reportColumn('Monto', 'money', 'R', 2), reportColumn('Participación', 'percent', 'R', 2),
+            reportColumn('Categoría', 'text', 'L', 3), reportColumn('Productos', 'integer', 'R', 1, true),
+            reportColumn('Unidades', 'integer', 'R', 1, true), reportColumn('Órdenes', 'integer', 'R', 1),
+            reportColumn('Monto', 'money', 'R', 2, true), reportColumn('Participación', 'percent', 'R', 2),
         ], $rows),
         reportTable('Productos por categoría', [
             reportColumn('Categoría', 'text', 'L', 2), reportColumn('Producto', 'text', 'L', 4),
-            reportColumn('Unidades', 'integer', 'R', 1), reportColumn('Monto', 'money', 'R', 2),
+            reportColumn('Unidades', 'integer', 'R', 1, true), reportColumn('Monto', 'money', 'R', 2, true),
             reportColumn('Part. en la categoría', 'percent', 'R', 2),
         ], $productRows),
     ], [
@@ -818,13 +820,13 @@ function reportBuildSalesBySeller(PDO $pdo, array $filters): array {
         reportMetric('Vendedor con más ventas', $leader ?? 'Sin ventas'),
     ], [
         reportTable('Ventas por vendedor', [
-            reportColumn('Vendedor', 'text', 'L', 3), reportColumn('Ventas', 'integer', 'R', 1),
-            reportColumn('Unidades', 'integer', 'R', 1), reportColumn('Monto', 'money', 'R', 2),
+            reportColumn('Vendedor', 'text', 'L', 3), reportColumn('Ventas', 'integer', 'R', 1, true),
+            reportColumn('Unidades', 'integer', 'R', 1, true), reportColumn('Monto', 'money', 'R', 2, true),
             reportColumn('Ticket promedio', 'money', 'R', 2), reportColumn('Participación', 'percent', 'R', 2),
         ], $rows),
         reportTable('Anulaciones por usuario', [
-            reportColumn('Usuario', 'text', 'L', 3), reportColumn('Anulaciones', 'integer', 'R', 1),
-            reportColumn('Monto anulado', 'money', 'R', 2),
+            reportColumn('Usuario', 'text', 'L', 3), reportColumn('Anulaciones', 'integer', 'R', 1, true),
+            reportColumn('Monto anulado', 'money', 'R', 2, true),
         ], $voidRows),
     ], [
         'El vendedor es el usuario que registró la orden. Se consideran las ventas cobradas por su fecha de pago.',
@@ -879,13 +881,13 @@ function reportBuildPeakHours(PDO $pdo, array $filters): array {
         reportMetric('Ventas cobradas', count($sales), 'integer'),
     ], [
         reportTable('Ventas por hora del día', [
-            reportColumn('Franja horaria', 'text', 'L', 2), reportColumn('Ventas', 'integer', 'R', 1),
-            reportColumn('Monto', 'money', 'R', 2), reportColumn('Ticket promedio', 'money', 'R', 2),
+            reportColumn('Franja horaria', 'text', 'L', 2), reportColumn('Ventas', 'integer', 'R', 1, true),
+            reportColumn('Monto', 'money', 'R', 2, true), reportColumn('Ticket promedio', 'money', 'R', 2),
             reportColumn('Ventas por día', 'quantity', 'R', 1), reportColumn('Participación', 'percent', 'R', 2),
         ], $hourRows),
         reportTable('Ventas por día de la semana', [
-            reportColumn('Día', 'text', 'L', 2), reportColumn('Ventas', 'integer', 'R', 1),
-            reportColumn('Monto', 'money', 'R', 2), reportColumn('Ticket promedio', 'money', 'R', 2),
+            reportColumn('Día', 'text', 'L', 2), reportColumn('Ventas', 'integer', 'R', 1, true),
+            reportColumn('Monto', 'money', 'R', 2, true), reportColumn('Ticket promedio', 'money', 'R', 2),
             reportColumn('Participación', 'percent', 'R', 2),
         ], $weekdayRows),
     ], [
@@ -922,9 +924,9 @@ function reportBuildPaymentMethods(PDO $pdo, array $filters): array {
     }
     ksort($byDay);
     $dayColumns = [reportColumn('Fecha', 'text', 'L', 2)];
-    foreach ($known as $method) $dayColumns[] = reportColumn(reportPaymentLabel($method), 'money', 'R', 2);
-    if ($hasOther) $dayColumns[] = reportColumn('Otros', 'money', 'R', 2);
-    $dayColumns[] = reportColumn('Total', 'money', 'R', 2);
+    foreach ($known as $method) $dayColumns[] = reportColumn(reportPaymentLabel($method), 'money', 'R', 2, true);
+    if ($hasOther) $dayColumns[] = reportColumn('Otros', 'money', 'R', 2, true);
+    $dayColumns[] = reportColumn('Total', 'money', 'R', 2, true);
     $dayRows = [];
     foreach ($byDay as $day => $amounts) {
         $row = [reportDayLabel($day)];
@@ -945,8 +947,8 @@ function reportBuildPaymentMethods(PDO $pdo, array $filters): array {
         reportMetric('Método principal', $leader === null ? 'Sin cobros' : reportPaymentLabel($leader === '' ? null : (string)$leader)),
     ], [
         reportTable('Cobros por método', [
-            reportColumn('Método', 'text', 'L', 3), reportColumn('Cobros', 'integer', 'R', 1),
-            reportColumn('Monto', 'money', 'R', 2), reportColumn('Ticket promedio', 'money', 'R', 2),
+            reportColumn('Método', 'text', 'L', 3), reportColumn('Cobros', 'integer', 'R', 1, true),
+            reportColumn('Monto', 'money', 'R', 2, true), reportColumn('Ticket promedio', 'money', 'R', 2),
             reportColumn('Participación', 'percent', 'R', 2),
         ], $methodRows),
         reportTable('Métodos de pago por día', $dayColumns, $dayRows),
@@ -1006,24 +1008,369 @@ function reportBuildVoids(PDO $pdo, array $filters): array {
         reportMetric('Anulado frente a lo cobrado', reportShare($total, $paidTotal), 'percent'),
     ], [
         reportTable('Anulaciones por usuario', [
-            reportColumn('Anuló', 'text', 'L', 3), reportColumn('Órdenes', 'integer', 'R', 1),
-            reportColumn('Monto', 'money', 'R', 2), reportColumn('Participación', 'percent', 'R', 2),
+            reportColumn('Anuló', 'text', 'L', 3), reportColumn('Órdenes', 'integer', 'R', 1, true),
+            reportColumn('Monto', 'money', 'R', 2, true), reportColumn('Participación', 'percent', 'R', 2),
         ], $groupRows($byUser)),
         reportTable('Anulaciones por motivo', [
-            reportColumn('Motivo', 'text', 'L', 4), reportColumn('Órdenes', 'integer', 'R', 1),
-            reportColumn('Monto', 'money', 'R', 2), reportColumn('Participación', 'percent', 'R', 2),
+            reportColumn('Motivo', 'text', 'L', 4), reportColumn('Órdenes', 'integer', 'R', 1, true),
+            reportColumn('Monto', 'money', 'R', 2, true), reportColumn('Participación', 'percent', 'R', 2),
         ], $groupRows($byReason)),
         reportTable('Detalle de anulaciones', [
             reportColumn('Orden', 'integer', 'R', 1), reportColumn('Creada', 'text', 'L', 2),
             reportColumn('Anulada', 'text', 'L', 2), reportColumn('Vendedor', 'text', 'L', 2),
             reportColumn('Anuló', 'text', 'L', 2), reportColumn('Estado previo', 'text', 'L', 1),
-            reportColumn('Unidades', 'integer', 'R', 1), reportColumn('Motivo', 'text', 'L', 3),
-            reportColumn('Monto', 'money', 'R', 2),
+            reportColumn('Unidades', 'integer', 'R', 1, true), reportColumn('Motivo', 'text', 'L', 3),
+            reportColumn('Monto', 'money', 'R', 2, true),
         ], $detail),
     ], [
         'Las anulaciones se cuentan por su fecha de anulación. Al anular una orden el stock de sus productos se restituye.',
         '"Anulado frente a lo cobrado" compara el monto anulado con las ventas cobradas del mismo período.',
     ]);
+}
+
+// ---------------------------------------------------------------------------
+// Sales detail: ticket-level rows driven by the report builder filters
+// ---------------------------------------------------------------------------
+
+const REPORT_SALE_STATUSES = ['paid' => 'Cobrada', 'pending' => 'Pendiente', 'voided' => 'Anulada'];
+const REPORT_PAYMENT_METHODS = ['cash', 'card', 'transfer', 'pagomovil'];
+const REPORT_SEARCH_MAX_LENGTH = 80;
+
+// Reference date of an order, consistent with the other reports: payment date
+// for paid orders, void date for voided ones and creation date for pending ones.
+const REPORT_SALE_DATE_SQL = "CASE WHEN s.status = 'paid' THEN COALESCE(s.paid_at, s.created_at)"
+    . " WHEN s.status = 'voided' THEN COALESCE(s.voided_at, s.created_at) ELSE s.created_at END";
+
+function reportSearchTerm(array $filters): string {
+    $term = is_string($filters['q'] ?? null) ? trim($filters['q']) : '';
+    return mb_substr($term, 0, REPORT_SEARCH_MAX_LENGTH, 'UTF-8');
+}
+
+/** Folded search words; a leading "#" (ticket numbers) is ignored. */
+function reportSearchWords(string $term): array {
+    $words = preg_split('/\s+/u', sweetposFoldText($term)) ?: [];
+    $words = array_map(fn($word) => ltrim($word, '#'), $words);
+    return array_values(array_filter($words, fn($word) => $word !== ''));
+}
+
+function reportSearchCompact(string $value): string {
+    return preg_replace('/[\s.\-]+/u', '', $value) ?? $value;
+}
+
+/**
+ * Every word must appear in the text, ignoring case and accents. Words are also
+ * compared without dots/dashes so "V-12.345.678" finds the cedula 12345678.
+ * Filtering runs in PHP so it behaves the same on SQLite and PostgreSQL.
+ */
+function reportTextMatches(string $haystack, array $words): bool {
+    if (!$words) return true;
+    $folded = sweetposFoldText($haystack);
+    $compact = null;
+    foreach ($words as $word) {
+        if (str_contains($folded, $word)) continue;
+        $compactWord = reportSearchCompact($word);
+        $compact ??= reportSearchCompact($folded);
+        if ($compactWord !== '' && str_contains($compact, $compactWord)) continue;
+        return false;
+    }
+    return true;
+}
+
+/** Validated status / payment method / seller filters of the sales detail report. */
+function reportSaleFilters(array $filters): array {
+    $status = is_string($filters['status'] ?? null) && $filters['status'] !== '' ? $filters['status'] : 'paid';
+    if ($status !== 'all' && !isset(REPORT_SALE_STATUSES[$status])) {
+        throw new ReportRequestException('El estado seleccionado no es válido.');
+    }
+    $method = is_string($filters['payment_method'] ?? null) ? $filters['payment_method'] : '';
+    if ($method !== '' && $method !== 'none' && !in_array($method, REPORT_PAYMENT_METHODS, true)) {
+        throw new ReportRequestException('El método de pago seleccionado no es válido.');
+    }
+    $seller = is_string($filters['seller'] ?? null) ? trim($filters['seller']) : '';
+    if (mb_strlen($seller, 'UTF-8') > 100) throw new ReportRequestException('El vendedor seleccionado no es válido.');
+    return ['status' => $status, 'payment_method' => $method, 'seller' => $seller];
+}
+
+/** Values offered by the report builder selects. */
+function reportFilterOptions(PDO $pdo): array {
+    $sellers = [];
+    $queries = [
+        "SELECT DISTINCT username FROM sales WHERE username IS NOT NULL AND username <> ''",
+        "SELECT username FROM users",
+    ];
+    foreach ($queries as $sql) {
+        try {
+            foreach ($pdo->query($sql)->fetchAll(PDO::FETCH_COLUMN) as $name) {
+                $name = trim((string)$name);
+                if ($name !== '') $sellers[$name] = true;
+            }
+        } catch (Throwable $e) {
+            error_log('SweetPOS report options query failed: ' . $e->getMessage());
+        }
+    }
+    $sellers = array_keys($sellers);
+    natcasesort($sellers);
+    $methods = [];
+    foreach (REPORT_PAYMENT_METHODS as $method) $methods[] = ['id' => $method, 'label' => reportPaymentLabel($method)];
+    $methods[] = ['id' => 'none', 'label' => reportPaymentLabel(null)];
+    $statuses = [];
+    foreach (REPORT_SALE_STATUSES as $id => $label) $statuses[] = ['id' => $id, 'label' => $label . 's'];
+    return ['sellers' => array_values($sellers), 'payment_methods' => $methods, 'statuses' => $statuses];
+}
+
+function reportBuildSalesDetail(PDO $pdo, array $filters): array {
+    $range = reportRange($filters);
+    $options = reportSaleFilters($filters);
+    $words = reportSearchWords(reportSearchTerm($filters));
+
+    $dateSql = REPORT_SALE_DATE_SQL;
+    $where = ["$dateSql >= ?", "$dateSql < ?"];
+    $params = [$range['start'], $range['end']];
+    if ($options['status'] !== 'all') {
+        $where[] = 's.status = ?';
+        $params[] = $options['status'];
+    }
+    if ($options['payment_method'] === 'none') {
+        $where[] = "(s.payment_method IS NULL OR s.payment_method = '')";
+    } elseif ($options['payment_method'] !== '') {
+        $where[] = 's.payment_method = ?';
+        $params[] = $options['payment_method'];
+    }
+    if ($options['seller'] !== '') {
+        $where[] = 's.username = ?';
+        $params[] = $options['seller'];
+    }
+    $whereSql = implode(' AND ', $where);
+
+    $stmt = $pdo->prepare(
+        "SELECT s.id, s.status, s.total_amount, s.payment_method, s.username, s.reference_number,
+                s.table_number, s.void_reason, $dateSql AS ref_date, c.name AS client_name, c.cedula AS client_cedula
+         FROM sales s LEFT JOIN clients c ON c.id = s.client_id
+         WHERE $whereSql
+         ORDER BY $dateSql, s.id"
+    );
+    $stmt->execute($params);
+    $sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $stmt = $pdo->prepare(
+        "SELECT si.sale_id, si.product_id, si.quantity, si.subtotal,
+                COALESCE(p.name, 'Producto #' || CAST(si.product_id AS TEXT)) AS name,
+                COALESCE(p.category, 'Sin categoría') AS category
+         FROM sale_items si JOIN sales s ON s.id = si.sale_id LEFT JOIN products p ON p.id = si.product_id
+         WHERE $whereSql
+         ORDER BY si.sale_id, si.id"
+    );
+    $stmt->execute($params);
+    $itemsBySale = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) $itemsBySale[(int)$item['sale_id']][] = $item;
+
+    $rows = [];
+    $products = [];
+    $byStatus = array_fill_keys(array_keys(REPORT_SALE_STATUSES), 0.0);
+    $total = 0.0;
+    $totalUnits = 0;
+    $clients = [];
+    foreach ($sales as $sale) {
+        $id = (int)$sale['id'];
+        $items = $itemsBySale[$id] ?? [];
+        $status = (string)($sale['status'] ?? 'paid');
+        $statusLabel = REPORT_SALE_STATUSES[$status] ?? $status;
+        $clientName = trim((string)($sale['client_name'] ?? ''));
+        $cedula = $sale['client_cedula'] !== null && $sale['client_cedula'] !== '' ? sweetposFormatCedula($sale['client_cedula']) : '';
+        $seller = reportSellerName($sale['username']);
+        $method = $status === 'pending' ? '' : reportPaymentLabel($sale['payment_method']);
+
+        if ($words) {
+            $haystack = ['#' . $id, $clientName, $cedula, (string)($sale['client_cedula'] ?? ''), $seller, $method, $statusLabel,
+                         (string)($sale['reference_number'] ?? ''), (string)($sale['void_reason'] ?? '')];
+            if ($sale['table_number'] !== null && $sale['table_number'] !== '') $haystack[] = 'Mesa ' . $sale['table_number'];
+            foreach ($items as $item) array_push($haystack, $item['name'], $item['category']);
+            if (!reportTextMatches(implode(' | ', $haystack), $words)) continue;
+        }
+
+        $units = 0;
+        $summary = [];
+        foreach ($items as $item) {
+            $qty = (int)$item['quantity'];
+            $units += $qty;
+            $summary[] = $qty . '× ' . $item['name'];
+            $key = (int)$item['product_id'];
+            $products[$key] = $products[$key] ?? [$item['name'], $item['category'], 0, [], 0.0];
+            $products[$key][2] += $qty;
+            $products[$key][3][$id] = true;
+            $products[$key][4] += (float)$item['subtotal'];
+        }
+        $amount = round((float)$sale['total_amount'], 2);
+        $total += $amount;
+        $totalUnits += $units;
+        if (isset($byStatus[$status])) $byStatus[$status] += $amount;
+        if ($cedula !== '' || $clientName !== '') $clients[$cedula . '|' . $clientName] = true;
+        $rows[] = [
+            $id, reportLocalTimestamp($sale['ref_date']), $statusLabel,
+            $clientName !== '' ? $clientName : 'Sin cliente', $cedula, $seller, $method,
+            implode(', ', $summary), $units, $amount,
+        ];
+    }
+
+    uasort($products, fn($a, $b) => ($b[2] <=> $a[2]) ?: ($b[4] <=> $a[4]) ?: strcasecmp($a[0], $b[0]));
+    $productRows = [];
+    foreach ($products as [$name, $category, $units, $orders, $amount]) {
+        $productRows[] = [$name, $category, $units, count($orders), round($amount, 2)];
+    }
+
+    $count = count($rows);
+    $metrics = [
+        reportMetric('Órdenes encontradas', $count, 'integer'),
+        reportMetric('Monto total', round($total, 2), 'money'),
+        reportMetric('Ticket promedio', $count ? round($total / $count, 2) : 0, 'money'),
+        reportMetric('Unidades', $totalUnits, 'integer'),
+        reportMetric('Clientes identificados', count($clients), 'integer'),
+    ];
+    if ($options['status'] === 'all') {
+        $labels = ['paid' => 'Monto cobrado', 'pending' => 'Monto pendiente', 'voided' => 'Monto anulado'];
+        foreach ($labels as $status => $label) $metrics[] = reportMetric($label, round($byStatus[$status], 2), 'money');
+    }
+
+    return reportResult('ventas_detalle', 'Detalle de ventas', $range, $metrics, [
+        reportTable('Órdenes', [
+            reportColumn('Orden', 'integer', 'R', 1), reportColumn('Fecha', 'text', 'L', 2),
+            reportColumn('Estado', 'text', 'L', 1), reportColumn('Cliente', 'text', 'L', 3),
+            reportColumn('Cédula', 'text', 'L', 2), reportColumn('Vendedor', 'text', 'L', 2),
+            reportColumn('Método', 'text', 'L', 2), reportColumn('Productos', 'text', 'L', 5),
+            reportColumn('Unidades', 'integer', 'R', 1, true), reportColumn('Monto', 'money', 'R', 2, true),
+        ], $rows),
+        reportTable('Productos de estas órdenes', [
+            reportColumn('Producto', 'text', 'L', 4), reportColumn('Categoría', 'text', 'L', 2),
+            reportColumn('Unidades', 'integer', 'R', 1, true), reportColumn('Órdenes', 'integer', 'R', 1),
+            reportColumn('Monto', 'money', 'R', 2, true),
+        ], $productRows),
+    ], [
+        'Fecha de referencia: cobro para las órdenes cobradas, anulación para las anuladas y creación para las pendientes.',
+        'La búsqueda revisa número de orden, cliente, cédula, vendedor, método, referencia, mesa, motivo de anulación, productos y categorías. Los indicadores corresponden a las órdenes encontradas.',
+    ]);
+}
+
+// ---------------------------------------------------------------------------
+// View options shared by the preview and the exports: search, sort and totals
+// ---------------------------------------------------------------------------
+
+const REPORT_NUMERIC_FORMATS = ['integer', 'money', 'quantity', 'days', 'percent'];
+const REPORT_PREVIEW_ROW_LIMIT = 500;
+
+/** Parse "table:column:dir" pairs (comma separated) into [tableIndex => [columnIndex, dir]]. */
+function reportParseSort($value): array {
+    if (!is_string($value) || $value === '') return [];
+    $sorts = [];
+    foreach (array_slice(explode(',', $value), 0, 10) as $part) {
+        if (!preg_match('/^(\d{1,2}):(\d{1,2}):(asc|desc)$/', trim($part), $m)) {
+            throw new ReportRequestException('El orden de columnas no es válido.');
+        }
+        $sorts[(int)$m[1]] = [(int)$m[2], $m[3]];
+    }
+    return $sorts;
+}
+
+/** Comparable key: numbers for numeric columns, Y-m-d for local dates, folded text otherwise. */
+function reportSortKey($value, string $format) {
+    if ($value === null || $value === '') return null;
+    if (in_array($format, REPORT_NUMERIC_FORMATS, true)) return is_numeric($value) ? (float)$value : null;
+    $text = (string)$value;
+    if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})(?: (\d{2}):(\d{2}))?$/', $text, $m)) {
+        return $m[3] . '-' . $m[2] . '-' . $m[1] . ' ' . ($m[4] ?? '00') . ':' . ($m[5] ?? '00');
+    }
+    return sweetposFoldText($text);
+}
+
+function reportSortRows(array $rows, int $column, string $format, string $direction): array {
+    $keyed = array_map(fn($row) => [reportSortKey($row[$column] ?? null, $format), $row], $rows);
+    // usort is stable since PHP 8, so ties keep the report's natural order.
+    usort($keyed, function ($a, $b) use ($direction) {
+        if ($a[0] === null || $b[0] === null) return ($a[0] === null) <=> ($b[0] === null); // empty values last
+        $result = is_float($a[0]) && is_float($b[0]) ? $a[0] <=> $b[0] : strnatcmp((string)$a[0], (string)$b[0]);
+        return $direction === 'desc' ? -$result : $result;
+    });
+    return array_column($keyed, 1);
+}
+
+/** Totals row: sums of the additive columns, "Total" in the first other column. */
+function reportTableTotals(array $table): ?array {
+    if (!$table['rows']) return null;
+    $totals = array_fill(0, count($table['columns']), null);
+    $hasSum = false;
+    $labelIndex = null;
+    foreach ($table['columns'] as $index => $column) {
+        if (empty($column['sum'])) {
+            $labelIndex ??= $index;
+            continue;
+        }
+        $hasSum = true;
+        $sum = 0.0;
+        foreach ($table['rows'] as $row) {
+            if (is_numeric($row[$index] ?? null)) $sum += (float)$row[$index];
+        }
+        $totals[$index] = $column['format'] === 'integer' ? (int)round($sum) : round($sum, 2);
+    }
+    if (!$hasSum) return null;
+    if ($labelIndex !== null) $totals[$labelIndex] = 'Total';
+    return $totals;
+}
+
+/** Human-readable list of the builder filters applied, for previews and exports. */
+function reportFiltersLabel(string $type, array $filters): string {
+    $parts = [];
+    $term = reportSearchTerm($filters);
+    if ($term !== '') $parts[] = 'Búsqueda: "' . $term . '"';
+    if ($type === 'ventas_detalle') {
+        $options = reportSaleFilters($filters);
+        $parts[] = 'Estado: ' . ($options['status'] === 'all' ? 'Todos' : REPORT_SALE_STATUSES[$options['status']] . 's');
+        if ($options['payment_method'] !== '') {
+            $parts[] = 'Método: ' . reportPaymentLabel($options['payment_method'] === 'none' ? null : $options['payment_method']);
+        }
+        if ($options['seller'] !== '') $parts[] = 'Vendedor: ' . $options['seller'];
+    }
+    return implode(' · ', $parts);
+}
+
+/**
+ * Apply the search, column sort and totals to a built report. Reports that
+ * search natively (ventas_detalle) already filtered their dataset.
+ */
+function reportApplyViewOptions(array $data, array $filters, bool $nativeSearch): array {
+    $term = reportSearchTerm($filters);
+    $words = $nativeSearch ? [] : reportSearchWords($term);
+    $sorts = reportParseSort($filters['sort'] ?? null);
+    foreach ($data['tables'] as $index => &$table) {
+        if ($words) {
+            $table['unfiltered_count'] = count($table['rows']);
+            $table['rows'] = array_values(array_filter($table['rows'], function ($row) use ($words) {
+                $text = implode(' | ', array_map(fn($value) => (string)($value ?? ''), $row));
+                return reportTextMatches($text, $words);
+            }));
+        }
+        if (isset($sorts[$index]) && isset($table['columns'][$sorts[$index][0]])) {
+            [$column, $direction] = $sorts[$index];
+            $table['rows'] = reportSortRows($table['rows'], $column, $table['columns'][$column]['format'], $direction);
+            $table['sort'] = ['column' => $column, 'dir' => $direction];
+        }
+        $table['totals'] = reportTableTotals($table);
+        $table['row_count'] = count($table['rows']);
+    }
+    unset($table);
+    if ($words) {
+        $data['notes'][] = 'Búsqueda "' . $term . '": las tablas muestran solo las filas que coinciden; los indicadores corresponden a todo el período.';
+    }
+    $data['search'] = $term;
+    return $data;
+}
+
+/** Cap each table for the on-screen preview; row_count and totals keep the full figures. */
+function reportLimitPreviewRows(array $data, int $limit = REPORT_PREVIEW_ROW_LIMIT): array {
+    foreach ($data['tables'] as &$table) {
+        $table['truncated'] = count($table['rows']) > $limit;
+        if ($table['truncated']) $table['rows'] = array_slice($table['rows'], 0, $limit);
+    }
+    unset($table);
+    return $data;
 }
 
 // ---------------------------------------------------------------------------
@@ -1096,18 +1443,18 @@ function reportBuildProduction(PDO $pdo, array $filters): array {
     ], [
         reportTable('Elaboración por producto', [
             reportColumn('Producto', 'text', 'L', 3), reportColumn('Categoría', 'text', 'L', 2),
-            reportColumn('Elaboraciones', 'integer', 'R', 1), reportColumn('Unidades', 'integer', 'R', 1),
-            reportColumn('Vendidas en el período', 'integer', 'R', 1), reportColumn('Costo de insumos', 'money', 'R', 2),
+            reportColumn('Elaboraciones', 'integer', 'R', 1, true), reportColumn('Unidades', 'integer', 'R', 1, true),
+            reportColumn('Vendidas en el período', 'integer', 'R', 1, true), reportColumn('Costo de insumos', 'money', 'R', 2, true),
             reportColumn('Costo por unidad', 'money', 'R', 2),
         ], $productRows),
         reportTable('Elaboración por usuario', [
-            reportColumn('Usuario', 'text', 'L', 3), reportColumn('Elaboraciones', 'integer', 'R', 1),
-            reportColumn('Unidades', 'integer', 'R', 1),
+            reportColumn('Usuario', 'text', 'L', 3), reportColumn('Elaboraciones', 'integer', 'R', 1, true),
+            reportColumn('Unidades', 'integer', 'R', 1, true),
         ], $userRows),
         reportTable('Detalle de elaboraciones', [
             reportColumn('Fecha', 'text', 'L', 2), reportColumn('Producto', 'text', 'L', 3),
-            reportColumn('Unidades', 'integer', 'R', 1), reportColumn('Usuario', 'text', 'L', 2),
-            reportColumn('Costo de insumos', 'money', 'R', 2),
+            reportColumn('Unidades', 'integer', 'R', 1, true), reportColumn('Usuario', 'text', 'L', 2),
+            reportColumn('Costo de insumos', 'money', 'R', 2, true),
         ], $detail),
     ], [
         'Las elaboraciones deshechas no se incluyen.',
@@ -1176,7 +1523,7 @@ function reportBuildMaterialUsage(PDO $pdo, array $filters): array {
             reportColumn('Insumo', 'text', 'L', 3), reportColumn('Unidad', 'text', 'L', 1),
             reportColumn('Usado en elaboración', 'quantity', 'R', 1), reportColumn('Mermas y ajustes', 'quantity', 'R', 1),
             reportColumn('Total consumido', 'quantity', 'R', 1), reportColumn('Costo unitario', 'money', 'R', 1),
-            reportColumn('Costo consumido', 'money', 'R', 2), reportColumn('Compras', 'quantity', 'R', 1),
+            reportColumn('Costo consumido', 'money', 'R', 2, true), reportColumn('Compras', 'quantity', 'R', 1),
             reportColumn('Stock actual', 'quantity', 'R', 1),
         ], $rows),
     ], [
@@ -1251,20 +1598,20 @@ function reportBuildShrinkage(PDO $pdo, array $filters): array {
         reportMetric('Registros sin costo', $withoutCost, 'integer'),
     ], [
         reportTable('Disminuciones por motivo', [
-            reportColumn('Motivo', 'text', 'L', 3), reportColumn('Registros', 'integer', 'R', 1),
-            reportColumn('Costo estimado', 'money', 'R', 2), reportColumn('Participación', 'percent', 'R', 2),
+            reportColumn('Motivo', 'text', 'L', 3), reportColumn('Registros', 'integer', 'R', 1, true),
+            reportColumn('Costo estimado', 'money', 'R', 2, true), reportColumn('Participación', 'percent', 'R', 2),
         ], $reasonRows),
         reportTable('Disminuciones por artículo', [
             reportColumn('Artículo', 'text', 'L', 3), reportColumn('Tipo', 'text', 'L', 1),
-            reportColumn('Registros', 'integer', 'R', 1), reportColumn('Cantidad', 'quantity', 'R', 1),
-            reportColumn('Unidad', 'text', 'L', 1), reportColumn('Costo estimado', 'money', 'R', 2),
+            reportColumn('Registros', 'integer', 'R', 1, true), reportColumn('Cantidad', 'quantity', 'R', 1),
+            reportColumn('Unidad', 'text', 'L', 1), reportColumn('Costo estimado', 'money', 'R', 2, true),
         ], $itemRows),
         reportTable('Detalle de disminuciones', [
             reportColumn('Fecha', 'text', 'L', 2), reportColumn('Artículo', 'text', 'L', 3),
             reportColumn('Tipo', 'text', 'L', 1), reportColumn('Cantidad', 'quantity', 'R', 1),
             reportColumn('Unidad', 'text', 'L', 1), reportColumn('Motivo', 'text', 'L', 2),
             reportColumn('Detalle', 'text', 'L', 3), reportColumn('Usuario', 'text', 'L', 2),
-            reportColumn('Costo estimado', 'money', 'R', 2),
+            reportColumn('Costo estimado', 'money', 'R', 2, true),
         ], $detail),
     ], [
         'Incluye las disminuciones y ajustes negativos de productos e insumos. Las ventas y elaboraciones no se cuentan aquí.',
@@ -1320,14 +1667,14 @@ function reportBuildInventoryValue(PDO $pdo, array $filters): array {
     ], [
         reportTable('Productos en existencia', [
             reportColumn('Producto', 'text', 'L', 3), reportColumn('Categoría', 'text', 'L', 2),
-            reportColumn('Stock', 'integer', 'R', 1), reportColumn('Costo unitario', 'money', 'R', 1),
-            reportColumn('Origen del costo', 'text', 'L', 2), reportColumn('Valor al costo', 'money', 'R', 2),
-            reportColumn('Precio', 'money', 'R', 1), reportColumn('Valor a precio de venta', 'money', 'R', 2),
+            reportColumn('Stock', 'integer', 'R', 1, true), reportColumn('Costo unitario', 'money', 'R', 1),
+            reportColumn('Origen del costo', 'text', 'L', 2), reportColumn('Valor al costo', 'money', 'R', 2, true),
+            reportColumn('Precio', 'money', 'R', 1), reportColumn('Valor a precio de venta', 'money', 'R', 2, true),
         ], $productRows),
         reportTable('Insumos en existencia', [
             reportColumn('Insumo', 'text', 'L', 3), reportColumn('Unidad', 'text', 'L', 1),
             reportColumn('Stock', 'quantity', 'R', 1), reportColumn('Costo unitario', 'money', 'R', 1),
-            reportColumn('Valor al costo', 'money', 'R', 2),
+            reportColumn('Valor al costo', 'money', 'R', 2, true),
         ], $materialRows),
     ], [
         'Los productos con receta se valoran con el costo actual de su receta; los de reventa, con el costo de su última compra registrada.',
@@ -1385,8 +1732,8 @@ function reportBuildProfitability(PDO $pdo, array $filters): array {
             reportColumn('Producto', 'text', 'L', 3), reportColumn('Categoría', 'text', 'L', 2),
             reportColumn('Precio', 'money', 'R', 1), reportColumn('Costo unitario', 'money', 'R', 1),
             reportColumn('Margen unitario', 'money', 'R', 1), reportColumn('Margen', 'percent', 'R', 1),
-            reportColumn('Unidades vendidas', 'integer', 'R', 1), reportColumn('Ventas', 'money', 'R', 2),
-            reportColumn('Costo de lo vendido', 'money', 'R', 2), reportColumn('Ganancia bruta', 'money', 'R', 2),
+            reportColumn('Unidades vendidas', 'integer', 'R', 1, true), reportColumn('Ventas', 'money', 'R', 2, true),
+            reportColumn('Costo de lo vendido', 'money', 'R', 2, true), reportColumn('Ganancia bruta', 'money', 'R', 2, true),
             reportColumn('Origen del costo', 'text', 'L', 2),
         ], $rows),
     ], [
@@ -1407,6 +1754,7 @@ function reportCatalog(): array {
         'cierre_mensual' => ['slug' => 'cierre-mensual', 'pdf' => 'CIERRE MENSUAL', 'build' => 'reportBuildMonthlyClose'],
         'metodos_pago' => ['slug' => 'metodos-pago', 'pdf' => 'METODOS DE PAGO', 'build' => 'reportBuildPaymentMethods'],
         'anulaciones' => ['slug' => 'anulaciones', 'pdf' => 'ANULACIONES', 'build' => 'reportBuildVoids'],
+        'ventas_detalle' => ['slug' => 'detalle-ventas', 'pdf' => 'DETALLE DE VENTAS', 'build' => 'reportBuildSalesDetail', 'native_search' => true],
         'ventas_periodo' => ['slug' => 'ventas-periodo', 'pdf' => 'VENTAS POR PERIODO', 'build' => 'reportBuildSalesPeriod'],
         'ventas_categoria' => ['slug' => 'ventas-categoria', 'pdf' => 'VENTAS POR CATEGORIA', 'build' => 'reportBuildSalesByCategory'],
         'ventas_vendedor' => ['slug' => 'ventas-vendedor', 'pdf' => 'VENTAS POR VENDEDOR', 'build' => 'reportBuildSalesBySeller'],
@@ -1425,6 +1773,10 @@ function reportBuildData(PDO $pdo, string $type, array $filters): array {
     $catalog = reportCatalog();
     if (!isset($catalog[$type])) throw new ReportRequestException('Tipo de reporte no válido.');
     $data = ($catalog[$type]['build'])($pdo, $filters);
+    // Preview (api/reports.php) and exports (api/report_export.php) both go
+    // through here, so search, sort and totals are always identical.
+    $data = reportApplyViewOptions($data, $filters, !empty($catalog[$type]['native_search']));
+    $data['filters_label'] = reportFiltersLabel($type, $filters);
     $config = reportBusinessConfig();
     $data['slug'] = $catalog[$type]['slug'];
     $data['pdf_title'] = $catalog[$type]['pdf'];

@@ -3,6 +3,8 @@ require_once __DIR__ . '/pdf_documents.php';
 
 function reportPdfCell($value, array $column): string {
     if ($value === null || $value === '') return '—';
+    // The totals row carries a "Total" label that may land on a numeric column.
+    if (is_string($value) && !is_numeric($value)) return $value;
     return match ($column['format'] ?? 'text') {
         'money' => pdfMoney((float)$value),
         'integer' => number_format((int)$value, 0, ',', '.'),
@@ -19,6 +21,7 @@ function reportBuildPdfDocument(array $data): array {
     $pdf->AddPage();
     $pdf->SetFont('Helvetica', '', 8.5);
     $pdf->umulti(0, 4.5, 'Generado: ' . $data['generated_at']);
+    if (!empty($data['filters_label'])) $pdf->umulti(0, 4.5, 'Filtros: ' . $data['filters_label']);
 
     $pdf->sectionTitle('Resumen');
     foreach ($data['metrics'] as $metric) {
@@ -51,7 +54,15 @@ function reportBuildPdfDocument(array $data): array {
             }
             $pdf->tableRow($values);
         }
-        if (!$table['rows']) $pdf->emptyRow('Sin registros para el período seleccionado.');
+        if (!empty($table['totals'])) {
+            $values = [];
+            foreach ($table['columns'] as $index => $column) {
+                $total = $table['totals'][$index] ?? null;
+                $values[] = $total === null ? '' : reportPdfCell($total, $column);
+            }
+            $pdf->tableRow($values, true, true);
+        }
+        if (!$table['rows']) $pdf->emptyRow('Sin registros para los filtros seleccionados.');
         $pdf->endTable();
     }
 
@@ -62,11 +73,13 @@ function reportBuildPdfDocument(array $data): array {
 
 function reportBuildWorkbookSheets(array $data): array {
     $summary = [['Indicador', 'Valor'], ['Negocio', $data['business_name'] ?? 'YILMANU POS'], ['Reporte', $data['title']], ['Período', $data['period_label']], ['Generado', $data['generated_at']]];
+    if (!empty($data['filters_label'])) $summary[] = ['Filtros', $data['filters_label']];
     foreach ($data['metrics'] as $metric) $summary[] = [$metric['label'], $metric['value']];
     $sheets = ['Resumen' => $summary];
     foreach ($data['tables'] as $index => $table) {
         $rows = [array_map(fn($column) => $column['label'], $table['columns'])];
         foreach ($table['rows'] as $row) $rows[] = array_values($row);
+        if (!empty($table['totals'])) $rows[] = array_values($table['totals']);
         $name = sweetposXlsxLimitUtf8((string)$table['title'], 31);
         if ($name === '') $name = 'Detalle ' . ($index + 1);
         // Two titles may share their first 31 characters; keep both sheets.
