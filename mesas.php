@@ -273,6 +273,7 @@
                 if (res.ok) {
                     showToast('Comanda anulada y stock restituido');
                     loadPendingTables();
+                    window.SweetLive?.poke();
                 } else {
                     showToast(data.error || 'No se pudo anular la comanda', 'error');
                 }
@@ -318,6 +319,12 @@
             });
 
             loadPendingTables();
+
+            if (window.SweetLive) {
+                // Tickets opened, extended, paid or voided by other cashiers
+                SweetLive.subscribe('sales', () => loadPendingTables({ silent: true }));
+                SweetLive.subscribe('stock', refreshAddItemsStock);
+            }
         });
 
         function showToast(message, type = 'success') {
@@ -335,19 +342,82 @@
             }, 3000);
         }
 
-        async function loadPendingTables() {
+        // Bumped on every load so a slower, older response never overwrites a newer one.
+        let pendingTablesSeq = 0;
+        // True while this cashier's own payment request is running.
+        let paymentBusy = false;
+
+        // options.silent: live refresh (no loader, keeps the grid on errors).
+        async function loadPendingTables(options = {}) {
             const grid = document.getElementById('tables-grid');
+            const silent = options.silent === true;
+            const seq = ++pendingTablesSeq;
             try {
-                grid.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center py-16"><div class="loader mb-3"></div><p class="text-xs font-semibold text-slate-400">Verificando mesas...</p></div>';
+                if (!silent) grid.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center py-16"><div class="loader mb-3"></div><p class="text-xs font-semibold text-slate-400">Verificando mesas...</p></div>';
                 const res = await fetch('api/sales.php');
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Error');
+                if (!res.ok || !Array.isArray(data)) throw new Error((data && data.error) || 'Error');
+                if (seq !== pendingTablesSeq) return;
                 allTablesCache = data;
                 updateTableCounts(allTablesCache);
                 filterTables();
+                syncOpenModals();
             } catch(e) {
+                if (silent) { console.error('Live tables refresh failed', e); return; }
+                if (seq !== pendingTablesSeq) return;
                 grid.innerHTML = '<p class="col-span-full text-center text-rose-500 py-10 font-medium">Error al cargar mesas activas.</p>';
             }
+        }
+
+        // Keeps open modals in line with what other cashiers did: a ticket that
+        // was paid or voided elsewhere closes its modal; totals are updated.
+        function syncOpenModals() {
+            const goneMessage = 'Esta comanda ya fue cobrada o anulada desde otra caja.';
+            const findSale = (id) => allTablesCache.find(s => Number(s.id) === Number(id));
+
+            const payModal = document.getElementById('payment-modal');
+            if (!payModal.classList.contains('hidden') && !paymentBusy) {
+                const sale = findSale(document.getElementById('pay-sale-id').value);
+                if (!sale) {
+                    closePaymentModal();
+                    showToast(goneMessage, 'error');
+                } else {
+                    const shown = document.getElementById('pay-modal-total').innerText;
+                    const total = '$' + parseFloat(sale.total_amount).toFixed(2);
+                    if (shown !== total) {
+                        const wasCollapsed = document.getElementById('pay-summary').classList.contains('is-collapsed');
+                        document.getElementById('pay-modal-total').innerText = total;
+                        renderPaymentSummary(sale, sale.total_amount);
+                        document.getElementById('pay-summary').classList.toggle('is-collapsed', wasCollapsed);
+                        document.getElementById('pay-summary-toggle').setAttribute('aria-expanded', String(!wasCollapsed));
+                    }
+                }
+            }
+
+            const addModal = document.getElementById('add-items-modal');
+            if (!addModal.classList.contains('hidden') && addItemsState.saleId && !addItemsState.busy) {
+                const sale = findSale(addItemsState.saleId);
+                if (!sale) {
+                    closeAddItemsModal();
+                    showToast(goneMessage, 'error');
+                } else {
+                    document.getElementById('add-items-subtitle').textContent = `${tableLabel(sale)} · Total actual $${parseFloat(sale.total_amount).toFixed(2)}`;
+                }
+            }
+        }
+
+        // Stock changed elsewhere while picking products: refresh availability,
+        // but never while a quantity is being typed (it would be overwritten).
+        function refreshAddItemsStock() {
+            if (document.getElementById('add-items-modal').classList.contains('hidden') || !addItemsState.saleId || addItemsState.busy) return;
+            const list = document.getElementById('add-items-list');
+            if (list.contains(document.activeElement) && document.activeElement.matches('input')) {
+                addItemsState.stockStale = true;
+                return;
+            }
+            addItemsState.stockStale = false;
+            const scrollTop = list.scrollTop;
+            loadAddItemsProducts().then(() => { list.scrollTop = scrollTop; });
         }
 
         function updateTableCounts(tables) {
@@ -533,7 +603,7 @@
         /* ---------- Agregar productos a una comanda pendiente ---------- */
         // quantities: product id -> units to append. Stock is checked again on the
         // server, which deducts it exactly like a new ticket.
-        const addItemsState = { saleId: null, products: [], quantities: new Map(), busy: false };
+        const addItemsState = { saleId: null, products: [], quantities: new Map(), busy: false, stockStale: false };
 
         function tableLabel(sale) {
             const n = String(sale?.table_number ?? '');
@@ -543,7 +613,7 @@
         async function openAddItemsModal(saleId) {
             const sale = allTablesCache.find(s => Number(s.id) === Number(saleId));
             if (!sale) return;
-            Object.assign(addItemsState, { saleId: Number(saleId), products: [], quantities: new Map(), busy: false });
+            Object.assign(addItemsState, { saleId: Number(saleId), products: [], quantities: new Map(), busy: false, stockStale: false });
             document.getElementById('add-items-subtitle').textContent = `${tableLabel(sale)} · Total actual $${parseFloat(sale.total_amount).toFixed(2)}`;
             document.getElementById('add-items-search').value = '';
             document.getElementById('add-items-list').innerHTML = '<div class="flex flex-col items-center justify-center py-10"><div class="loader mb-3"></div><p class="text-xs font-semibold text-slate-600">Cargando productos...</p></div>';
@@ -654,6 +724,7 @@
                     showToast('Productos agregados a la comanda');
                     closeAddItemsModal();
                     loadPendingTables();
+                    window.SweetLive?.poke();
                 } else {
                     showToast(data.error || 'No se pudieron agregar los productos', 'error');
                     if (res.status === 409) {
@@ -686,6 +757,11 @@
             if (!input) return;
             setAddItemQuantity(Number(input.dataset.id), input.value.replace(/\D/g, ''));
             renderAddItemsList();
+        });
+        // Apply a stock refresh that was postponed while a quantity was being typed
+        // (after the 'change' handler above has stored the typed value).
+        document.getElementById('add-items-list').addEventListener('focusout', () => {
+            if (addItemsState.stockStale) setTimeout(refreshAddItemsStock, 0);
         });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !document.getElementById('add-items-modal').classList.contains('hidden')) closeAddItemsModal();
@@ -757,6 +833,7 @@
                 return;
             }
             
+            paymentBusy = true;
             try {
                 const res = await fetch('api/sales.php', {
                     method: 'PUT',
@@ -768,11 +845,12 @@
                         reference_number: reference || null
                     })
                 });
-                
+
                 if(res.ok) {
                     showToast('Pago registrado correctamente');
                     closePaymentModal();
                     loadPendingTables();
+                    window.SweetLive?.poke();
                     if (window.SweetReceipt) SweetReceipt.show(saleId, { autoClose: true });
                 } else {
                     const data = await res.json().catch(() => ({}));
@@ -780,6 +858,8 @@
                 }
             } catch(e) {
                 showToast('Error de conexión', 'error');
+            } finally {
+                paymentBusy = false;
             }
         }
     </script>

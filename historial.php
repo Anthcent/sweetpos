@@ -214,6 +214,10 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchHistory();
+            if (window.SweetLive) {
+                // api/history.php returns every sale: refresh at most every 10s
+                SweetLive.subscribe('sales', refreshHistoryQuietly, { minIntervalMs: 10000 });
+            }
             SweetPagination.onBreakpointChange(() => {
                 historyPage = 1;
                 if (filteredSalesCache.length) renderSales(filteredSalesCache);
@@ -253,17 +257,48 @@
             });
         });
 
+        // Bumped on every load so a slower, older response never overwrites a newer one.
+        let historyLoadSeq = 0;
+
         async function fetchHistory() {
+            const seq = ++historyLoadSeq;
             historyContainer.innerHTML = '<div class="w-full flex justify-center py-20"><div class="loader"></div></div>';
             try {
                 const response = await fetch('api/history.php');
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Error');
+                if (seq !== historyLoadSeq) return;
                 allSales = data;
                 updateStatusPillCounts(allSales);
                 applyFilters();
             } catch (error) {
+                if (seq !== historyLoadSeq) return;
                 historyContainer.innerHTML = '<p class="text-center text-rose-500 font-medium py-20">Error de conexión con el servidor.</p>';
+            }
+        }
+
+        // Live refresh after another cashier's sale/payment/void: no loader, keeps
+        // filters, current page and expanded details; errors keep the current list.
+        async function refreshHistoryQuietly() {
+            const seq = ++historyLoadSeq;
+            try {
+                const response = await fetch('api/history.php');
+                const data = await response.json();
+                if (!response.ok || !Array.isArray(data)) throw new Error((data && data.error) || 'Error');
+                if (seq !== historyLoadSeq) return;
+                const openIds = Array.from(historyContainer.querySelectorAll('[id^="details-"]:not(.hidden)'))
+                    .map(el => el.id.slice('details-'.length));
+                allSales = data;
+                updateStatusPillCounts(allSales);
+                applyFilters({ keepPage: true });
+                openIds.forEach(id => {
+                    const el = document.getElementById(`details-${id}`);
+                    const icon = document.getElementById(`icon-${id}`);
+                    if (el) el.classList.remove('hidden');
+                    if (icon) icon.style.transform = 'rotate(180deg)';
+                });
+            } catch (error) {
+                console.error('Live history refresh failed', error);
             }
         }
 
@@ -284,7 +319,10 @@
             if (elVoided) elVoided.textContent = voided;
         }
 
-        function applyFilters() {
+        // options.keepPage: stay on the current page (live refresh). Event
+        // listeners call this with an Event, which never sets keepPage.
+        function applyFilters(options) {
+            const keepPage = !!(options && options.keepPage === true);
             const rawQuery = filterSearch.value.trim();
             const query = rawQuery.toLowerCase();
             const status = filterStatus.value;
@@ -324,7 +362,7 @@
             }
 
             updateKPIs(filteredSales);
-            historyPage = 1;
+            if (!keepPage) historyPage = 1;
             renderSales(filteredSales);
         }
 
@@ -391,6 +429,7 @@
                     return;
                 }
                 await fetchHistory();
+                window.SweetLive?.poke();
             } catch (e) {
                 alert('Error de conexión al anular la orden.');
             }

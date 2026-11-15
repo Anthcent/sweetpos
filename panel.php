@@ -210,26 +210,40 @@
                 drawMaterialsPage();
             });
             loadInsights();
+            if (window.SweetLive) {
+                // Insights are an aggregate report: refresh at most every 15s
+                SweetLive.subscribe(['sales', 'stock'], () => loadInsights({ live: true }), { minIntervalMs: 15000 });
+            }
         });
 
-        async function loadInsights() {
+        // Bumped on every load so a slower, older response never overwrites a newer one.
+        let insightsLoadSeq = 0;
+
+        // options.live: refresh triggered by another cashier's activity; keeps the
+        // table pages and leaves the current data on screen if it fails.
+        async function loadInsights(options) {
+            const live = !!(options && options.live === true);
+            const seq = ++insightsLoadSeq;
             const targetDays = document.getElementById('target-days').value;
             const errBox = document.getElementById('panel-error');
             try {
                 const res = await fetch(`api/insights.php?target_days=${encodeURIComponent(targetDays)}`);
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'No se pudo cargar el panel.');
+                if (seq !== insightsLoadSeq) return;
                 errBox.classList.add('hidden');
                 renderKpis(data);
                 renderAlerts(data.alerts);
-                renderProducts(data.products);
-                renderMaterials(data.materials);
+                renderProducts(data.products, live);
+                renderMaterials(data.materials, live);
                 document.getElementById('panel-footnote').textContent =
                     `Promedio diario calculado sobre ${data.window_days} día(s) de ventas pagadas y pendientes (las anuladas no cuentan). ` +
                     `Actualizado: ${new Date(data.generated_at).toLocaleString('es-VE')}.`;
                 if (window.setSidebarAlertCount) window.setSidebarAlertCount(data.kpis.critical_alerts);
                 lucide.createIcons();
             } catch (e) {
+                if (live) { console.error('Live panel refresh failed', e); return; }
+                if (seq !== insightsLoadSeq) return;
                 errBox.textContent = e.message || 'No se pudo cargar el panel.';
                 errBox.classList.remove('hidden');
             }
@@ -319,9 +333,9 @@
             }).join('');
         }
 
-        function renderProducts(products) {
+        function renderProducts(products, keepPage = false) {
             panelProducts = Array.isArray(products) ? products : [];
-            productPage = 1;
+            if (!keepPage) productPage = 1;
             drawProductsPage();
         }
 
@@ -440,9 +454,9 @@
             if (window.lucide) lucide.createIcons();
         }
 
-        function renderMaterials(materials) {
+        function renderMaterials(materials, keepPage = false) {
             panelMaterials = Array.isArray(materials) ? materials : [];
-            materialPage = 1;
+            if (!keepPage) materialPage = 1;
             drawMaterialsPage();
         }
 

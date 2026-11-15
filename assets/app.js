@@ -144,10 +144,15 @@ document.addEventListener('DOMContentLoaded', () => {
         setupCategoryFilters();
         renderQuickTables();
         
-        // Polling de mesas activas
-        // Polling de mesas activas (tambien mantiene la ocupacion de mesas al dia)
+        // Mesas activas (tambien mantiene la ocupacion de mesas al dia)
         fetchActiveTables();
-        activeTablesInterval = setInterval(fetchActiveTables, 10000);
+        if (window.SweetLive) {
+            // Other cashiers' tickets/payments and stock changes, within seconds
+            SweetLive.subscribe('sales', () => fetchActiveTables());
+            SweetLive.subscribe('stock', () => refreshProductsQuietly());
+        } else {
+            activeTablesInterval = setInterval(fetchActiveTables, 10000);
+        }
         
         checkoutTriggerBtn?.addEventListener('click', openCheckoutModal);
         processPaymentBtn?.addEventListener('click', () => processCheckout('paid'));
@@ -180,22 +185,52 @@ function showToast(message, type = 'success') {
 }
 
 // Productos y Grid
+// Bumped on every load so a slower, older response never overwrites a newer one.
+let productsLoadSeq = 0;
+
+async function loadProductList() {
+    const response = await fetch('api/products.php');
+    const rawProducts = await response.json();
+    if (!response.ok || !Array.isArray(rawProducts)) throw new Error('Could not load products');
+    return rawProducts.map(p => ({
+        ...p,
+        id: parseInt(p.id, 10),
+        price: parseFloat(p.price),
+        stock: parseInt(p.stock, 10)
+    }));
+}
+
 async function fetchProducts() {
+    const seq = ++productsLoadSeq;
     try {
         productsGrid.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center py-16"><div class="loader mb-3"></div><p class="text-xs font-semibold text-slate-400">Cargando delicias...</p></div>';
-        const response = await fetch('api/products.php');
-        const rawProducts = await response.json();
-        products = rawProducts.map(p => ({ 
-            ...p, 
-            id: parseInt(p.id, 10), 
-            price: parseFloat(p.price), 
-            stock: parseInt(p.stock, 10) 
-        }));
+        const list = await loadProductList();
+        if (seq !== productsLoadSeq) return;
+        products = list;
         updateCategoryCounts();
         applyProductFilters();
     } catch (error) {
+        if (seq !== productsLoadSeq) return;
         showToast('Error cargando productos', 'error');
         productsGrid.innerHTML = '<p class="text-slate-500 col-span-full text-center py-10 font-medium">Error al cargar productos del inventario.</p>';
+    }
+}
+
+// Live stock refresh: no loader, keeps cart, filters, search and scroll position.
+async function refreshProductsQuietly() {
+    if (!productsGrid) return;
+    const seq = ++productsLoadSeq;
+    try {
+        const list = await loadProductList();
+        if (seq !== productsLoadSeq) return;
+        const scroller = productsGrid.parentElement;
+        const scrollTop = scroller ? scroller.scrollTop : 0;
+        products = list;
+        updateCategoryCounts();
+        applyProductFilters();
+        if (scroller) scroller.scrollTop = scrollTop;
+    } catch (error) {
+        console.error('Live product refresh failed', error);
     }
 }
 
@@ -553,8 +588,10 @@ function updateQuantity(id, change) {
     if(itemIndex > -1) {
         const item = cart[itemIndex];
         const newQty = item.quantity + change;
-        const originalProduct = products.find(p => p.id === id);
-        
+        // A live refresh may have dropped the product (deactivated elsewhere):
+        // fall back to the cart line so it can still be reduced or removed.
+        const originalProduct = products.find(p => p.id === id) || { ...item, stock: Math.min(item.stock, item.quantity) };
+
         if(newQty > 0 && newQty <= originalProduct.stock) {
             item.quantity = newQty;
             item.subtotal = item.quantity * originalProduct.price;
@@ -1153,6 +1190,7 @@ async function processCheckout(status) {
             fetchProducts();
             closeCheckoutModal();
             fetchActiveTables();
+            window.SweetLive?.poke();
             if (status === 'paid' && result.sale_id) showSaleReceipt(result.sale_id);
         } else {
             showToast(result.error || 'Error al procesar orden', 'error');
@@ -1178,6 +1216,7 @@ async function processCheckout(status) {
 async function fetchActiveTables() {
     try {
         const pendingSales = await fetchPendingSales();
+        syncPosPaymentModal(pendingSales);
         if(!activeTablesBar) return;
         
         if(pendingSales.length === 0) {
@@ -1220,6 +1259,22 @@ async function fetchActiveTables() {
     } catch(e) {
         console.error('Error fetching active tables', e);
     }
+}
+
+// True while this cashier's own payment request is running: the ticket may
+// already be gone from the pending list, and that is not someone else's doing.
+let posPaymentBusy = false;
+
+// Keeps the open "cobrar mesa" modal in line with what other cashiers did.
+function syncPosPaymentModal(pendingSales) {
+    if(!posPaymentModal || posPaymentModal.classList.contains('hidden') || posPaymentBusy) return;
+    const sale = pendingSales.find(s => String(s.id) === String(posPaySaleId.value));
+    if(!sale) {
+        closePosPaymentModal();
+        showToast('Esta comanda ya fue cobrada o anulada desde otra caja.', 'error');
+        return;
+    }
+    posPayModalTotal.innerText = '$' + parseFloat(sale.total_amount).toFixed(2);
 }
 
 // Pos Payment Modal Logic
@@ -1268,6 +1323,7 @@ async function submitPosTablePayment() {
     const originalHtml = btn.innerHTML;
     btn.innerHTML = '<div class="loader inline-block border-2 mr-2"></div> Procesando...';
     btn.disabled = true;
+    posPaymentBusy = true;
 
     try {
         const res = await fetch('api/sales.php', {
@@ -1285,6 +1341,7 @@ async function submitPosTablePayment() {
             showToast('Pago registrado correctamente');
             closePosPaymentModal();
             fetchActiveTables();
+            window.SweetLive?.poke();
             showSaleReceipt(saleId);
         } else {
             const data = await res.json();
@@ -1293,6 +1350,7 @@ async function submitPosTablePayment() {
     } catch(e) {
         showToast('Error de conexión', 'error');
     } finally {
+        posPaymentBusy = false;
         btn.innerHTML = originalHtml;
         btn.disabled = false;
     }
