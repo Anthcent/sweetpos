@@ -42,6 +42,8 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TA
         /* Phones: the filter rows fold into a panel opened from the "Filtros" button. */
         @media (max-width: 767px) {
             .report-filters-body[data-open="false"] { display: none; }
+            /* This page scrolls on <main> itself; the global mobile rule sets body > main to overflow: hidden. */
+            #report-main { overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
         }
     </style>
 </head>
